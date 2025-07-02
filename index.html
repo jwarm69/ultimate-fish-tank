@@ -1,0 +1,2424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Fish Tank - Bulletproof</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Load Three.js directly - REQUIRED -->
+    <script src="libs/three.min.js"></script>
+    
+    <!-- OrbitControls for 360 camera movement -->
+    <script>
+        // Add OrbitControls inline since it's a small utility
+        if (typeof THREE !== 'undefined') {
+            class OrbitControls {
+                constructor(camera, domElement) {
+                    this.camera = camera;
+                    this.domElement = domElement;
+                    
+                    // Control settings
+                    this.enableDamping = true;
+                    this.dampingFactor = 0.05;
+                    this.enableZoom = true;
+                    this.minDistance = 10;
+                    this.maxDistance = 50;
+                    this.enableRotate = true;
+                    this.rotateSpeed = 1.0;
+                    this.enablePan = true;
+                    this.panSpeed = 1.0;
+                    this.autoRotate = false;
+                    this.autoRotateSpeed = 2.0;
+                    
+                    // Vertical limits
+                    this.minPolarAngle = Math.PI * 0.1; // 18 degrees from top
+                    this.maxPolarAngle = Math.PI * 0.8; // 144 degrees from top
+                    
+                    // Target point (tank center)
+                    this.target = new THREE.Vector3(0, 0, 0);
+                    
+                    // Internal state
+                    this.spherical = new THREE.Spherical();
+                    this.sphericalDelta = new THREE.Spherical();
+                    this.scale = 1;
+                    this.panOffset = new THREE.Vector3();
+                    this.rotating = false;
+                    this.panning = false;
+                    this.zooming = false;
+                    
+                    this.rotateStart = new THREE.Vector2();
+                    this.rotateEnd = new THREE.Vector2();
+                    this.rotateDelta = new THREE.Vector2();
+                    
+                    this.panStart = new THREE.Vector2();
+                    this.panEnd = new THREE.Vector2();
+                    this.panDelta = new THREE.Vector2();
+                    
+                    this.setupEventListeners();
+                    this.update();
+                }
+                
+                setupEventListeners() {
+                    this.domElement.addEventListener('mousedown', this.onMouseDown.bind(this));
+                    this.domElement.addEventListener('wheel', this.onMouseWheel.bind(this));
+                    this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+                }
+                
+                onMouseDown(event) {
+                    if (event.button === 0) { // Left mouse button
+                        this.rotating = true;
+                        this.rotateStart.set(event.clientX, event.clientY);
+                    } else if (event.button === 2) { // Right mouse button
+                        this.panning = true;
+                        this.panStart.set(event.clientX, event.clientY);
+                    }
+                    
+                    document.addEventListener('mousemove', this.onMouseMove.bind(this));
+                    document.addEventListener('mouseup', this.onMouseUp.bind(this));
+                }
+                
+                onMouseMove(event) {
+                    if (this.rotating) {
+                        this.rotateEnd.set(event.clientX, event.clientY);
+                        this.rotateDelta.subVectors(this.rotateEnd, this.rotateStart);
+                        
+                        const element = this.domElement;
+                        this.sphericalDelta.theta -= 2 * Math.PI * this.rotateDelta.x / element.clientHeight * this.rotateSpeed;
+                        this.sphericalDelta.phi -= 2 * Math.PI * this.rotateDelta.y / element.clientHeight * this.rotateSpeed;
+                        
+                        this.rotateStart.copy(this.rotateEnd);
+                    } else if (this.panning) {
+                        this.panEnd.set(event.clientX, event.clientY);
+                        this.panDelta.subVectors(this.panEnd, this.panStart);
+                        this.pan(this.panDelta.x, this.panDelta.y);
+                        this.panStart.copy(this.panEnd);
+                    }
+                }
+                
+                onMouseUp() {
+                    this.rotating = false;
+                    this.panning = false;
+                    document.removeEventListener('mousemove', this.onMouseMove.bind(this));
+                    document.removeEventListener('mouseup', this.onMouseUp.bind(this));
+                }
+                
+                onMouseWheel(event) {
+                    event.preventDefault();
+                    if (event.deltaY < 0) {
+                        this.scale /= 1.1;
+                    } else {
+                        this.scale *= 1.1;
+                    }
+                }
+                
+                pan(deltaX, deltaY) {
+                    const element = this.domElement;
+                    const position = this.camera.position;
+                    const targetDistance = position.distanceTo(this.target);
+                    
+                    const panSpeed = 2 * Math.tan((this.camera.fov / 2) * Math.PI / 180) * targetDistance / element.clientHeight;
+                    
+                    const panLeft = new THREE.Vector3();
+                    panLeft.setFromMatrixColumn(this.camera.matrix, 0);
+                    panLeft.multiplyScalar(-deltaX * panSpeed);
+                    
+                    const panUp = new THREE.Vector3();
+                    panUp.setFromMatrixColumn(this.camera.matrix, 1);
+                    panUp.multiplyScalar(deltaY * panSpeed);
+                    
+                    this.panOffset.add(panLeft).add(panUp);
+                }
+                
+                update() {
+                    const position = this.camera.position;
+                    
+                    const offset = new THREE.Vector3();
+                    offset.copy(position).sub(this.target);
+                    
+                    this.spherical.setFromVector3(offset);
+                    
+                    if (this.autoRotate) {
+                        this.sphericalDelta.theta -= 2 * Math.PI / 60 / 60 * this.autoRotateSpeed;
+                    }
+                    
+                    this.spherical.theta += this.sphericalDelta.theta;
+                    this.spherical.phi += this.sphericalDelta.phi;
+                    
+                    this.spherical.phi = Math.max(this.minPolarAngle, Math.min(this.maxPolarAngle, this.spherical.phi));
+                    this.spherical.radius *= this.scale;
+                    this.spherical.radius = Math.max(this.minDistance, Math.min(this.maxDistance, this.spherical.radius));
+                    
+                    this.target.add(this.panOffset);
+                    
+                    offset.setFromSpherical(this.spherical);
+                    position.copy(this.target).add(offset);
+                    
+                    this.camera.lookAt(this.target);
+                    
+                    if (this.enableDamping) {
+                        this.sphericalDelta.theta *= (1 - this.dampingFactor);
+                        this.sphericalDelta.phi *= (1 - this.dampingFactor);
+                        this.panOffset.multiplyScalar(1 - this.dampingFactor);
+                        this.scale = 1 + (this.scale - 1) * (1 - this.dampingFactor);
+                    } else {
+                        this.sphericalDelta.set(0, 0, 0);
+                        this.panOffset.set(0, 0, 0);
+                        this.scale = 1;
+                    }
+                }
+                
+                reset() {
+                    this.target.set(0, 0, 0);
+                    this.camera.position.set(0, 15, 20);
+                    this.camera.lookAt(this.target);
+                    this.sphericalDelta.set(0, 0, 0);
+                    this.panOffset.set(0, 0, 0);
+                    this.scale = 1;
+                }
+            }
+            
+            THREE.OrbitControls = OrbitControls;
+        }
+    </script>
+    
+    <!-- Try Cannon-ES, fallback gracefully if it fails -->
+    <script src="/libs/cannon-es.js" onerror="window.CANNON_FAILED=true"></script>
+    
+    <!-- Socket.IO for multiplayer (optional) -->
+    <script src="/libs/socket.io.min.js" onerror="window.SOCKETIO_FAILED=true"></script>
+</head>
+<body>
+    <div id="loading">
+        <div class="loading-content">
+            <div class="fish-loading">🐠</div>
+            <h2>Loading Your Aquarium...</h2>
+            <p id="loading-progress">Checking capabilities...</p>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <!-- 3D Canvas -->
+        <div id="canvas-container"></div>
+        
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <!-- Top Status Bar -->
+            <div id="status-bar">
+                <div class="status-section">
+                    <h3 id="tank-name">My Aquarium</h3>
+                    <div class="stats">
+                        <span class="stat">💰 <span id="aqua-coins">500</span></span>
+                        <span class="stat">⭐ Level <span id="player-level">1</span></span>
+                        <span class="stat" id="mode-indicator">🔧 Detecting...</span>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="tank-stats">
+                        <span class="stat">🌡️ <span id="temperature">24°C</span></span>
+                        <span class="stat">✨ Clean: <span id="cleanliness">90%</span></span>
+                        <span class="stat">🐠 Fish: <span id="fish-count">1</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Left Panel - Actions -->
+            <div id="left-panel" class="panel">
+                <div class="panel-header">
+                    <h3>🎮 Actions</h3>
+                </div>
+                <div class="action-buttons">
+                    <button id="feed-btn" class="action-btn">🍽️ Feed</button>
+                    <button id="clean-btn" class="action-btn">🧽 Clean</button>
+                    <button id="add-fish-btn" class="action-btn">🐠 Add Fish</button>
+                    <button id="info-btn" class="action-btn">ℹ️ Info</button>
+                </div>
+                <div id="capability-status" style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                    <small id="capabilities-text">Checking capabilities...</small>
+                </div>
+            </div>
+            
+            <!-- Bottom Panel - Messages -->
+            <div id="bottom-panel" class="panel">
+                <div id="message-log">
+                    <div class="message">🐠 Welcome to your ultimate digital aquarium!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        console.log('🚀 Starting ultimate fish tank...');
+        
+        // Capability detection
+        const CAPABILITIES = {
+            three: typeof THREE !== 'undefined',
+            cannon: typeof CANNON !== 'undefined' && !window.CANNON_FAILED,
+            socketio: typeof io !== 'undefined' && !window.SOCKETIO_FAILED,
+            webgl: (() => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+                } catch (e) {
+                    return false;
+                }
+            })()
+        };
+        
+        console.log('🔍 Detected capabilities:', CAPABILITIES);
+        
+        class UltimateFishTank {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.world = null;
+                this.fish = [];
+                this.socket = null;
+                
+                this.hasPhysics = CAPABILITIES.cannon;
+                this.hasMultiplayer = CAPABILITIES.socketio;
+                this.hasWebGL = CAPABILITIES.webgl;
+                
+                // Mouse tracking for fish interaction
+                this.mouse = new THREE.Vector2();
+                this.raycaster = new THREE.Raycaster();
+                this.mouseWorldPosition = new THREE.Vector3();
+                
+                this.init();
+            }
+            
+            init() {
+                console.log(`🎨 Creating fish tank with capabilities:
+                    - Three.js: ${CAPABILITIES.three ? '✅' : '❌'}
+                    - Cannon.js: ${CAPABILITIES.cannon ? '✅' : '❌'}
+                    - Socket.IO: ${CAPABILITIES.socketio ? '✅' : '❌'}
+                    - WebGL: ${CAPABILITIES.webgl ? '✅' : '❌'}`);
+                
+                // Must have Three.js
+                if (!CAPABILITIES.three) {
+                    this.showError('Three.js is required but failed to load.');
+                    return;
+                }
+                
+                // Update UI with detected mode
+                this.updateModeIndicator();
+                this.updateCapabilityStatus();
+                
+                this.setupScene();
+                this.setupPhysics();
+                this.setupMultiplayer();
+                this.createTank();
+                this.createFish();
+                this.setupUI();
+                this.animate();
+                
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('game-container').style.display = 'block';
+                
+                this.addMessage(`✅ Fish tank loaded! Mode: ${this.getModeName()}`);
+                console.log('✅ Ultimate fish tank running successfully!');
+            }
+            
+            getModeName() {
+                if (this.hasPhysics && this.hasMultiplayer) return 'Full (Physics + Multiplayer)';
+                if (this.hasPhysics) return 'Physics Only';
+                if (this.hasMultiplayer) return 'Multiplayer Only';
+                return 'Basic Mode';
+            }
+            
+            updateModeIndicator() {
+                const indicator = document.getElementById('mode-indicator');
+                if (this.hasPhysics && this.hasMultiplayer) {
+                    indicator.innerHTML = '⚡ Full Mode';
+                } else if (this.hasPhysics) {
+                    indicator.innerHTML = '🌍 Physics Mode';
+                } else if (this.hasMultiplayer) {
+                    indicator.innerHTML = '🌐 Multiplayer Mode';
+                } else {
+                    indicator.innerHTML = '🔧 Basic Mode';
+                }
+            }
+            
+            updateCapabilityStatus() {
+                const statusText = document.getElementById('capabilities-text');
+                const capabilities = [];
+                if (CAPABILITIES.three) capabilities.push('✅ 3D Graphics');
+                if (CAPABILITIES.cannon) capabilities.push('✅ Physics');
+                if (CAPABILITIES.socketio) capabilities.push('✅ Multiplayer');
+                if (CAPABILITIES.webgl) capabilities.push('✅ WebGL');
+                
+                const missing = [];
+                if (!CAPABILITIES.cannon) missing.push('❌ Physics');
+                if (!CAPABILITIES.socketio) missing.push('❌ Multiplayer');
+                if (!CAPABILITIES.webgl) missing.push('❌ Hardware Acceleration');
+                
+                statusText.innerHTML = `
+                    <strong>Available:</strong><br>
+                    ${capabilities.join('<br>')}
+                    ${missing.length > 0 ? `<br><strong>Missing:</strong><br>${missing.join('<br>')}` : ''}
+                `;
+            }
+            
+            setupScene() {
+                this.scene = new THREE.Scene();
+                // Remove solid background - we'll create a realistic room environment
+                this.scene.background = null;
+                
+                this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.set(0, 15, 20);
+                this.camera.lookAt(0, 0, 0);
+                
+                // Use WebGL if available, fallback to Canvas
+                const rendererOptions = { antialias: this.hasWebGL };
+                if (this.hasWebGL) {
+                    this.renderer = new THREE.WebGLRenderer(rendererOptions);
+                    this.renderer.shadowMap.enabled = true;
+                    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                } else {
+                    console.warn('⚠️ WebGL not available, using Canvas renderer');
+                    this.renderer = new THREE.CanvasRenderer();
+                }
+                
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setClearColor(0xf4f4f4, 1); // Light gray background
+                
+                const container = document.getElementById('canvas-container');
+                container.appendChild(this.renderer.domElement);
+                
+                // Setup OrbitControls for 360° camera movement
+                this.setupOrbitControls();
+                
+                // Create room environment
+                this.createRoomEnvironment();
+            }
+            
+            setupOrbitControls() {
+                if (typeof THREE.OrbitControls !== 'undefined') {
+                    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                    
+                    // Configure controls
+                    this.controls.enableDamping = true;
+                    this.controls.dampingFactor = 0.05;
+                    this.controls.enableZoom = true;
+                    this.controls.minDistance = 12;
+                    this.controls.maxDistance = 45;
+                    this.controls.enableRotate = true;
+                    this.controls.rotateSpeed = 0.5;
+                    this.controls.enablePan = true;
+                    this.controls.panSpeed = 0.8;
+                    this.controls.autoRotate = false;
+                    this.controls.autoRotateSpeed = 1.0;
+                    
+                    // Vertical rotation limits
+                    this.controls.minPolarAngle = Math.PI * 0.1; // 18 degrees from top
+                    this.controls.maxPolarAngle = Math.PI * 0.75; // 135 degrees from top
+                    
+                    // Target the tank center
+                    this.controls.target.set(0, 2, 0);
+                    
+                    console.log('🎮 OrbitControls enabled - Drag to rotate, wheel to zoom, right-click to pan');
+                    this.addMessage('🎮 Mouse: Drag to rotate • Wheel: Zoom • Right-click: Pan • Space: Auto-rotate');
+                } else {
+                    console.warn('⚠️ OrbitControls not available, using basic controls');
+                }
+            }
+            
+            createRoomEnvironment() {
+                console.log('🏠 Creating room environment...');
+                
+                // Create realistic room with wood floor and walls
+                this.createRoomStructure();
+                this.createTankStand();
+                this.createRoomLighting();
+                
+                console.log('✅ Room environment created');
+            }
+            
+            createRoomStructure() {
+                // Wood floor with realistic texture
+                const floorGeometry = new THREE.PlaneGeometry(80, 80);
+                const floorMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x8B4513, // Saddle brown
+                    roughness: 0.8,
+                    metalness: 0.1
+                });
+                
+                // Create wood grain pattern procedurally
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                
+                // Base wood color
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(0, 0, 512, 512);
+                
+                // Wood grain lines
+                ctx.strokeStyle = '#654321';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 20; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, i * 25 + Math.random() * 10);
+                    ctx.lineTo(512, i * 25 + Math.random() * 10);
+                    ctx.stroke();
+                }
+                
+                // Create texture from canvas
+                const woodTexture = new THREE.CanvasTexture(canvas);
+                woodTexture.wrapS = THREE.RepeatWrapping;
+                woodTexture.wrapT = THREE.RepeatWrapping;
+                woodTexture.repeat.set(8, 8);
+                
+                floorMaterial.map = woodTexture;
+                
+                const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.y = -12;
+                floor.receiveShadow = true;
+                this.scene.add(floor);
+                
+                // Room walls with warm color
+                const wallMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xFAF0E6, // Linen white
+                    roughness: 0.9,
+                    metalness: 0.0
+                });
+                
+                // Back wall
+                const backWallGeometry = new THREE.PlaneGeometry(80, 40);
+                const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+                backWall.position.set(0, 8, -35);
+                backWall.receiveShadow = true;
+                this.scene.add(backWall);
+                
+                // Side walls
+                const leftWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+                leftWall.position.set(-35, 8, 0);
+                leftWall.rotation.y = Math.PI / 2;
+                leftWall.receiveShadow = true;
+                this.scene.add(leftWall);
+                
+                const rightWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+                rightWall.position.set(35, 8, 0);
+                rightWall.rotation.y = -Math.PI / 2;
+                rightWall.receiveShadow = true;
+                this.scene.add(rightWall);
+                
+                // Ceiling
+                const ceilingGeometry = new THREE.PlaneGeometry(80, 80);
+                const ceilingMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xFFFFFF,
+                    roughness: 0.8
+                });
+                
+                const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+                ceiling.rotation.x = Math.PI / 2;
+                ceiling.position.y = 28;
+                this.scene.add(ceiling);
+            }
+            
+            createTankStand() {
+                // Wooden tank stand/cabinet
+                const standWidth = 28;
+                const standHeight = 8;
+                const standDepth = 20;
+                
+                const standMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x8B4513, // Matching wood color
+                    roughness: 0.6,
+                    metalness: 0.1
+                });
+                
+                // Main cabinet body
+                const standGeometry = new THREE.BoxGeometry(standWidth, standHeight, standDepth);
+                const stand = new THREE.Mesh(standGeometry, standMaterial);
+                stand.position.set(0, -8 + standHeight/2, 0);
+                stand.castShadow = true;
+                stand.receiveShadow = true;
+                this.scene.add(stand);
+                
+                // Cabinet legs
+                const legGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2);
+                const legPositions = [
+                    [-standWidth/2 + 2, -8 - 1, -standDepth/2 + 2],
+                    [standWidth/2 - 2, -8 - 1, -standDepth/2 + 2],
+                    [-standWidth/2 + 2, -8 - 1, standDepth/2 - 2],
+                    [standWidth/2 - 2, -8 - 1, standDepth/2 - 2]
+                ];
+                
+                legPositions.forEach(pos => {
+                    const leg = new THREE.Mesh(legGeometry, standMaterial);
+                    leg.position.set(...pos);
+                    leg.castShadow = true;
+                    this.scene.add(leg);
+                });
+                
+                // Cabinet doors (decorative)
+                const doorGeometry = new THREE.BoxGeometry(11, 6, 0.5);
+                const doorMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x654321, // Darker wood
+                    roughness: 0.7
+                });
+                
+                const leftDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+                leftDoor.position.set(-6.5, -6, standDepth/2 + 0.3);
+                this.scene.add(leftDoor);
+                
+                const rightDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+                rightDoor.position.set(6.5, -6, standDepth/2 + 0.3);
+                this.scene.add(rightDoor);
+                
+                // Door handles
+                const handleGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.8);
+                const handleMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xFFD700, // Gold
+                    metalness: 0.8,
+                    roughness: 0.2
+                });
+                
+                const leftHandle = new THREE.Mesh(handleGeometry, handleMaterial);
+                leftHandle.position.set(-2, -6, standDepth/2 + 0.8);
+                leftHandle.rotation.z = Math.PI / 2;
+                this.scene.add(leftHandle);
+                
+                const rightHandle = new THREE.Mesh(handleGeometry, handleMaterial);
+                rightHandle.position.set(2, -6, standDepth/2 + 0.8);
+                rightHandle.rotation.z = Math.PI / 2;
+                this.scene.add(rightHandle);
+            }
+            
+            createRoomLighting() {
+                // Remove old lighting system
+                this.scene.children = this.scene.children.filter(child => 
+                    !(child instanceof THREE.Light)
+                );
+                
+                // Room ambient lighting
+                const roomAmbient = new THREE.AmbientLight(0xFFF8DC, 0.3); // Warm white
+                this.scene.add(roomAmbient);
+                
+                // Ceiling light fixture
+                const ceilingLight = new THREE.DirectionalLight(0xFFFAF0, 0.8);
+                ceilingLight.position.set(0, 25, 0);
+                ceilingLight.target.position.set(0, 0, 0);
+                ceilingLight.castShadow = true;
+                ceilingLight.shadow.mapSize.width = 2048;
+                ceilingLight.shadow.mapSize.height = 2048;
+                ceilingLight.shadow.camera.near = 0.5;
+                ceilingLight.shadow.camera.far = 50;
+                ceilingLight.shadow.camera.left = -30;
+                ceilingLight.shadow.camera.right = 30;
+                ceilingLight.shadow.camera.top = 30;
+                ceilingLight.shadow.camera.bottom = -30;
+                this.scene.add(ceilingLight);
+                this.scene.add(ceilingLight.target);
+                
+                // Window light simulation
+                const windowLight = new THREE.DirectionalLight(0x87CEEB, 0.4);
+                windowLight.position.set(-20, 15, 10);
+                windowLight.castShadow = true;
+                this.scene.add(windowLight);
+                
+                // Add tank lighting back (will be called later in tank creation)
+            }
+            
+            setupPhysics() {
+                if (this.hasPhysics) {
+                    try {
+                        this.world = new CANNON.World({
+                            gravity: new CANNON.Vec3(0, 0, 0) // No gravity in water
+                        });
+                        console.log('🌍 Physics world created successfully');
+                    } catch (e) {
+                        console.error('❌ Failed to create physics world:', e);
+                        this.hasPhysics = false;
+                        this.world = null;
+                        this.addMessage('⚠️ Physics engine failed, running in basic mode');
+                    }
+                } else {
+                    console.log('🔧 Running without physics engine');
+                }
+            }
+            
+            setupMultiplayer() {
+                if (this.hasMultiplayer) {
+                    try {
+                        // Only try to connect if server is running
+                        this.socket = io('/', {
+                            timeout: 5000,
+                            transports: ['websocket', 'polling']
+                        });
+                        
+                        this.socket.on('connect', () => {
+                            console.log('🌐 Connected to multiplayer server');
+                            this.addMessage('🌐 Multiplayer connected!');
+                        });
+                        
+                        this.socket.on('connect_error', () => {
+                            console.warn('⚠️ Multiplayer server unavailable');
+                            this.addMessage('⚠️ Multiplayer unavailable');
+                            this.hasMultiplayer = false;
+                        });
+                        
+                    } catch (e) {
+                        console.error('❌ Multiplayer setup failed:', e);
+                        this.hasMultiplayer = false;
+                        this.addMessage('⚠️ Multiplayer unavailable');
+                    }
+                } else {
+                    console.log('🔧 Running without multiplayer');
+                }
+            }
+            
+            createTank() {
+                // Professional crystal glass tank with realistic materials
+                this.createGlassTank();
+                this.createWaterVolume();
+                this.createProfessionalLighting();
+                this.createDecorations();
+                this.createWaterEffects();
+            }
+            
+            createGlassTank() {
+                // Ultra-realistic glass material with proper refraction
+                const glassMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0xffffff,
+                    metalness: 0.0,
+                    roughness: 0.02,
+                    transmission: 0.95,
+                    transparent: true,
+                    thickness: 0.15,
+                    envMapIntensity: 1.5,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.1,
+                    ior: 1.5
+                });
+                
+                // Glass edge highlighting material
+                const glassEdgeMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    metalness: 0.9,
+                    roughness: 0.1,
+                    emissive: 0x004466,
+                    emissiveIntensity: 0.1
+                });
+                
+                // Create glass walls with proper thickness
+                const tankWidth = 24;
+                const tankHeight = 16;
+                const tankDepth = 16;
+                const glassThickness = 0.2;
+                
+                // Front glass panel
+                const frontGlass = new THREE.Mesh(
+                    new THREE.BoxGeometry(tankWidth, tankHeight, glassThickness),
+                    glassMaterial
+                );
+                frontGlass.position.set(0, 0, tankDepth/2);
+                this.scene.add(frontGlass);
+                
+                // Back glass panel
+                const backGlass = new THREE.Mesh(
+                    new THREE.BoxGeometry(tankWidth, tankHeight, glassThickness),
+                    glassMaterial
+                );
+                backGlass.position.set(0, 0, -tankDepth/2);
+                this.scene.add(backGlass);
+                
+                // Left glass panel
+                const leftGlass = new THREE.Mesh(
+                    new THREE.BoxGeometry(glassThickness, tankHeight, tankDepth),
+                    glassMaterial
+                );
+                leftGlass.position.set(-tankWidth/2, 0, 0);
+                this.scene.add(leftGlass);
+                
+                // Right glass panel
+                const rightGlass = new THREE.Mesh(
+                    new THREE.BoxGeometry(glassThickness, tankHeight, tankDepth),
+                    glassMaterial
+                );
+                rightGlass.position.set(tankWidth/2, 0, 0);
+                this.scene.add(rightGlass);
+                
+                // Bottom glass panel
+                const bottomGlass = new THREE.Mesh(
+                    new THREE.BoxGeometry(tankWidth, glassThickness, tankDepth),
+                    glassMaterial
+                );
+                bottomGlass.position.set(0, -tankHeight/2, 0);
+                this.scene.add(bottomGlass);
+                
+                // Add glass edge highlights for realism
+                this.createGlassEdges(tankWidth, tankHeight, tankDepth, glassEdgeMaterial);
+            }
+            
+            createGlassEdges(width, height, depth, material) {
+                const edgeThickness = 0.05;
+                
+                // Vertical edges
+                const verticalEdges = [
+                    [width/2, 0, depth/2],   // Front right
+                    [-width/2, 0, depth/2],  // Front left
+                    [width/2, 0, -depth/2],  // Back right
+                    [-width/2, 0, -depth/2]  // Back left
+                ];
+                
+                verticalEdges.forEach(pos => {
+                    const edge = new THREE.Mesh(
+                        new THREE.CylinderGeometry(edgeThickness, edgeThickness, height),
+                        material
+                    );
+                    edge.position.set(...pos);
+                    this.scene.add(edge);
+                });
+            }
+            
+            createWaterVolume() {
+                // Create realistic water volume with caustics
+                const waterGeometry = new THREE.BoxGeometry(23, 15, 15);
+                const waterMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0x1E90FF,
+                    transparent: true,
+                    opacity: 0.6,
+                    transmission: 0.8,
+                    thickness: 10,
+                    roughness: 0.1,
+                    metalness: 0.0,
+                    ior: 1.33, // Water refractive index
+                    clearcoat: 0.3,
+                    clearcoatRoughness: 0.2
+                });
+                
+                const water = new THREE.Mesh(waterGeometry, waterMaterial);
+                water.position.set(0, 0.5, 0);
+                this.scene.add(water);
+                
+                // Create animated water caustics on the bottom
+                this.createWaterCaustics();
+            }
+            
+            createWaterCaustics() {
+                // Create moving light patterns on tank bottom (caustics effect)
+                const causticsGeometry = new THREE.PlaneGeometry(20, 14);
+                const causticsMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x87CEEB,
+                    transparent: true,
+                    opacity: 0.15,
+                    blending: THREE.AdditiveBlending
+                });
+                
+                // Ensure caustics is always an array
+                this.caustics = [];
+                console.log('🌊 Initializing water caustics array');
+                
+                // Create multiple caustic layers for realistic effect
+                for (let i = 0; i < 3; i++) {
+                    const caustics = new THREE.Mesh(causticsGeometry, causticsMaterial.clone());
+                    caustics.rotation.x = -Math.PI / 2;
+                    caustics.position.set(
+                        (Math.random() - 0.5) * 2,
+                        -7.8,
+                        (Math.random() - 0.5) * 2
+                    );
+                    caustics.material.opacity = 0.05 + i * 0.05;
+                    this.caustics.push(caustics);
+                    this.scene.add(caustics);
+                }
+                
+                console.log(`✅ Created ${this.caustics.length} caustic layers`);
+            }
+            
+            createProfessionalLighting() {
+                // Remove existing lights and create professional aquarium lighting
+                this.scene.children = this.scene.children.filter(child => 
+                    !(child instanceof THREE.Light)
+                );
+                
+                // Main ambient underwater lighting
+                const underwaterAmbient = new THREE.AmbientLight(0x4488BB, 0.4);
+                this.scene.add(underwaterAmbient);
+                
+                // Top LED strip lighting (multiple lights for realism)
+                for (let i = 0; i < 5; i++) {
+                    const ledLight = new THREE.DirectionalLight(0xffffff, 0.3);
+                    ledLight.position.set(
+                        (i - 2) * 4,
+                        12,
+                        (Math.random() - 0.5) * 2
+                    );
+                    ledLight.target.position.set(0, -4, 0);
+                    ledLight.castShadow = true;
+                    ledLight.shadow.mapSize.width = 1024;
+                    ledLight.shadow.mapSize.height = 1024;
+                    this.scene.add(ledLight);
+                    this.scene.add(ledLight.target);
+                }
+                
+                // Blue accent lighting for mood
+                const blueAccent = new THREE.PointLight(0x4499FF, 0.5, 30);
+                blueAccent.position.set(-8, 2, 6);
+                this.scene.add(blueAccent);
+                
+                // Side rim lighting
+                const rimLight = new THREE.DirectionalLight(0x88CCFF, 0.2);
+                rimLight.position.set(15, 8, 10);
+                this.scene.add(rimLight);
+            }
+            
+            createDecorations() {
+                // Plant
+                const plantGeometry = new THREE.ConeGeometry(0.5, 3, 8);
+                const plantMaterial = new THREE.MeshStandardMaterial({ color: 0x2d5016 });
+                const plant = new THREE.Mesh(plantGeometry, plantMaterial);
+                plant.position.set(-6, -4, -4);
+                this.scene.add(plant);
+                
+                // Rock
+                const rockGeometry = new THREE.DodecahedronGeometry(1);
+                const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(6, -4, 3);
+                this.scene.add(rock);
+            }
+            
+            createWaterEffects() {
+                // Create animated bubbles
+                this.bubbles = [];
+                for (let i = 0; i < 15; i++) {
+                    const bubble = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.1 + Math.random() * 0.15),
+                        new THREE.MeshStandardMaterial({
+                            color: 0xffffff,
+                            transparent: true,
+                            opacity: 0.3,
+                            metalness: 0.1,
+                            roughness: 0.1
+                        })
+                    );
+                    
+                    bubble.position.set(
+                        (Math.random() - 0.5) * 20,
+                        -8 + Math.random() * 2,
+                        (Math.random() - 0.5) * 12
+                    );
+                    
+                    bubble.userData = {
+                        speed: 0.01 + Math.random() * 0.02,
+                        sway: Math.random() * 0.02,
+                        originalX: bubble.position.x,
+                        time: Math.random() * Math.PI * 2
+                    };
+                    
+                    this.bubbles.push(bubble);
+                    this.scene.add(bubble);
+                }
+                
+                // Create water caustics on the bottom
+                const causticsGeometry = new THREE.PlaneGeometry(24, 16);
+                const causticsMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x87ceeb,
+                    transparent: true,
+                    opacity: 0.2,
+                    side: THREE.DoubleSide
+                });
+                
+                this.caustics = new THREE.Mesh(causticsGeometry, causticsMaterial);
+                this.caustics.position.set(0, -7.9, 0);
+                this.caustics.rotation.x = -Math.PI / 2;
+                this.scene.add(this.caustics);
+            }
+            
+            createFish() {
+                // Create initial goldfish
+                const fish = this.createSingleFish('goldfish');
+                const config = fish.userData.config;
+                
+                fish.scale.setScalar(config.size);
+                fish.position.set(0, 0, 0);
+                
+                if (this.hasPhysics && this.world) {
+                    // Physics mode
+                    const shape = new CANNON.Sphere(0.5 * config.size);
+                    const body = new CANNON.Body({ mass: config.size });
+                    body.addShape(shape);
+                    body.position.set(0, 0, 0);
+                    this.world.addBody(body);
+                    
+                    fish.userData.body = body;
+                    fish.userData.hasPhysics = true;
+                    fish.userData.speed = 2 * config.size;
+                    fish.userData.bounds = { x: 10, y: 6, z: 6 };
+                } else {
+                    // Basic mode
+                    fish.userData.direction = new THREE.Vector3(1, 0, 0);
+                    fish.userData.speed = 0.02 * config.size;
+                    fish.userData.turnSpeed = 0.01;
+                    fish.userData.bounds = { x: 10, y: 6, z: 6 };
+                    fish.userData.hasPhysics = false;
+                }
+                
+                // Add animation data
+                fish.userData.animationTime = 0;
+                fish.userData.finSpeed = 0.15;
+                
+                // Add personality and happiness data
+                fish.userData.personality = config.personality;
+                fish.userData.happiness = 75 + Math.random() * 25;
+                fish.userData.hunger = 60 + Math.random() * 40;
+                fish.userData.health = 90 + Math.random() * 10;
+                fish.userData.seekingPlayer = false;
+                fish.userData.personalityTimer = Math.random() * 100;
+                fish.userData.moodParticles = [];
+                fish.userData.moodTimer = 0;
+                
+                this.fish.push(fish);
+                this.scene.add(fish);
+            }
+            
+            createRealisticFishBody(config) {
+                // Create a realistic fish body using custom geometry
+                const bodyGeometry = new THREE.BufferGeometry();
+                const vertices = [];
+                const normals = [];
+                const uvs = [];
+                const indices = [];
+                
+                // Parameters for fish body shape
+                const segments = 16;
+                const rings = 8;
+                const length = config.bodyScale.x;
+                const height = config.bodyScale.y;
+                const width = config.bodyScale.z;
+                
+                // Create vertices for fish body (more realistic torpedo shape)
+                for (let i = 0; i <= segments; i++) {
+                    const u = i / segments;
+                    const x = (u - 0.5) * length * 2;
+                    
+                    // Fish body profile (wider in middle, tapered at ends)
+                    let bodyRadius = Math.sin(u * Math.PI) * 0.5;
+                    if (u < 0.3) bodyRadius *= (u / 0.3); // Tapered head
+                    if (u > 0.7) bodyRadius *= ((1.0 - u) / 0.3); // Tapered tail
+                    
+                    for (let j = 0; j <= rings; j++) {
+                        const v = j / rings;
+                        const theta = v * Math.PI * 2;
+                        
+                        const y = Math.cos(theta) * bodyRadius * height;
+                        const z = Math.sin(theta) * bodyRadius * width;
+                        
+                        vertices.push(x, y, z);
+                        
+                        // Calculate normal
+                        const normal = new THREE.Vector3(
+                            -Math.sin(u * Math.PI) * 0.3,
+                            Math.cos(theta) * bodyRadius,
+                            Math.sin(theta) * bodyRadius
+                        ).normalize();
+                        normals.push(normal.x, normal.y, normal.z);
+                        
+                        uvs.push(u, v);
+                    }
+                }
+                
+                // Create faces
+                for (let i = 0; i < segments; i++) {
+                    for (let j = 0; j < rings; j++) {
+                        const a = i * (rings + 1) + j;
+                        const b = (i + 1) * (rings + 1) + j;
+                        const c = (i + 1) * (rings + 1) + j + 1;
+                        const d = i * (rings + 1) + j + 1;
+                        
+                        indices.push(a, b, d);
+                        indices.push(b, c, d);
+                    }
+                }
+                
+                bodyGeometry.setIndex(indices);
+                bodyGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                bodyGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                bodyGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+                
+                return bodyGeometry;
+            }
+            
+            createOrganicFin(width, height, shape = 'curved') {
+                // Create organic fin geometry using planes with custom shapes
+                const finGeometry = new THREE.BufferGeometry();
+                const vertices = [];
+                const normals = [];
+                const uvs = [];
+                const indices = [];
+                
+                const segmentsW = 8;
+                const segmentsH = 6;
+                
+                for (let i = 0; i <= segmentsW; i++) {
+                    const u = i / segmentsW;
+                    for (let j = 0; j <= segmentsH; j++) {
+                        const v = j / segmentsH;
+                        
+                        let x = (u - 0.5) * width;
+                        let y = v * height;
+                        let z = 0;
+                        
+                        // Create organic fin shape
+                        if (shape === 'curved') {
+                            // Curved fin edge
+                            const edgeCurve = Math.sin(u * Math.PI) * 0.3;
+                            y *= (1.0 - edgeCurve * v);
+                        } else if (shape === 'flowing') {
+                            // Flowing betta-style fin
+                            const flow = Math.sin(u * Math.PI * 2) * 0.2;
+                            y += flow * v;
+                            z += Math.sin(u * Math.PI * 3) * 0.1 * v;
+                        }
+                        
+                        vertices.push(x, y, z);
+                        normals.push(0, 0, 1);
+                        uvs.push(u, v);
+                    }
+                }
+                
+                // Create indices
+                for (let i = 0; i < segmentsW; i++) {
+                    for (let j = 0; j < segmentsH; j++) {
+                        const a = i * (segmentsH + 1) + j;
+                        const b = (i + 1) * (segmentsH + 1) + j;
+                        const c = (i + 1) * (segmentsH + 1) + j + 1;
+                        const d = i * (segmentsH + 1) + j + 1;
+                        
+                        indices.push(a, b, d);
+                        indices.push(b, c, d);
+                    }
+                }
+                
+                finGeometry.setIndex(indices);
+                finGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                finGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                finGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+                
+                return finGeometry;
+            }
+
+            createSingleFish(species = null) {
+                const fishGroup = new THREE.Group();
+                
+                // Random species if not specified
+                if (!species) {
+                    const speciesTypes = ['tropical', 'goldfish', 'betta', 'tetra', 'angelfish', 'clownfish', 'tang', 'koi', 'rainbow', 'discus'];
+                    species = speciesTypes[Math.floor(Math.random() * speciesTypes.length)];
+                }
+                
+                const config = this.getFishConfig(species);
+                
+                // Create realistic fish body
+                const bodyGeometry = this.createRealisticFishBody(config);
+                
+                // Advanced fish material with scale-like appearance
+                const bodyMaterial = new THREE.MeshStandardMaterial({ 
+                    color: config.bodyColor,
+                    metalness: config.iridescent ? 0.7 : 0.2,
+                    roughness: config.iridescent ? 0.1 : 0.4,
+                    emissive: new THREE.Color(config.bodyColor).multiplyScalar(0.05),
+                    envMapIntensity: config.iridescent ? 1.5 : 0.5
+                });
+                
+                // Add subsurface scattering effect for organic look
+                if (config.translucent) {
+                    bodyMaterial.transparent = true;
+                    bodyMaterial.opacity = 0.95;
+                    bodyMaterial.transmission = 0.1;
+                }
+                
+                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                fishGroup.add(body);
+                
+                // Enhanced eyes with depth and reflection
+                const eyeGeometry = new THREE.SphereGeometry(0.18, 12, 8);
+                const eyeMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0xffffff,
+                    metalness: 0.9,
+                    roughness: 0.1,
+                    envMapIntensity: 2.0
+                });
+                const pupilMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0x000022,
+                    metalness: 0.8,
+                    roughness: 0.2
+                });
+                
+                // Left eye with better positioning
+                const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                leftEye.position.set(0.6, 0.15, 0.35);
+                leftEye.scale.set(1, 0.8, 0.6);
+                fishGroup.add(leftEye);
+                
+                const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), pupilMaterial);
+                leftPupil.position.set(0.65, 0.15, 0.35);
+                leftPupil.scale.set(1, 0.8, 0.6);
+                fishGroup.add(leftPupil);
+                
+                // Right eye
+                const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                rightEye.position.set(0.6, 0.15, -0.35);
+                rightEye.scale.set(1, 0.8, 0.6);
+                fishGroup.add(rightEye);
+                
+                const rightPupil = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), pupilMaterial);
+                rightPupil.position.set(0.65, 0.15, -0.35);
+                rightPupil.scale.set(1, 0.8, 0.6);
+                fishGroup.add(rightPupil);
+                
+                // Advanced fin materials with gradient transparency
+                const finMaterial = new THREE.MeshStandardMaterial({ 
+                    color: config.finColor,
+                    transparent: true,
+                    opacity: 0.8,
+                    metalness: 0.1,
+                    roughness: 0.7,
+                    emissive: new THREE.Color(config.finColor).multiplyScalar(0.02),
+                    side: THREE.DoubleSide,
+                    alphaTest: 0.1
+                });
+                
+                // Create organic fins based on species
+                let tailShape = 'curved';
+                let finScale = { width: 1.0, height: 1.0 };
+                
+                if (species === 'betta') {
+                    tailShape = 'flowing';
+                    finScale = { width: 1.8, height: 1.5 };
+                } else if (species === 'angelfish') {
+                    finScale = { width: 0.8, height: 2.0 };
+                }
+                
+                // Tail fin with organic shape
+                const tailGeometry = this.createOrganicFin(0.8 * finScale.width, 1.4 * finScale.height, tailShape);
+                const tail = new THREE.Mesh(tailGeometry, finMaterial);
+                tail.position.set(-1.0, 0, 0);
+                tail.rotation.set(0, Math.PI/2, 0);
+                fishGroup.add(tail);
+                
+                // Dorsal fin (top)
+                const dorsalGeometry = this.createOrganicFin(1.2, 0.8 * finScale.height, 'curved');
+                const dorsalFin = new THREE.Mesh(dorsalGeometry, finMaterial);
+                dorsalFin.position.set(-0.1, 0.6, 0);
+                dorsalFin.rotation.set(Math.PI/2, 0, 0);
+                fishGroup.add(dorsalFin);
+                
+                // Pectoral fins (sides) - smaller and more realistic
+                const pectoralGeometry = this.createOrganicFin(0.4, 0.8, 'curved');
+                
+                // Left pectoral fin
+                const leftPectoral = new THREE.Mesh(pectoralGeometry, finMaterial);
+                leftPectoral.position.set(0.3, -0.2, 0.4);
+                leftPectoral.rotation.set(0.4, 0.3, 0.8);
+                fishGroup.add(leftPectoral);
+                
+                // Right pectoral fin
+                const rightPectoral = new THREE.Mesh(pectoralGeometry, finMaterial);
+                rightPectoral.position.set(0.3, -0.2, -0.4);
+                rightPectoral.rotation.set(-0.4, -0.3, -0.8);
+                fishGroup.add(rightPectoral);
+                
+                // Anal fin (bottom)
+                const analGeometry = this.createOrganicFin(0.8, 0.6, 'curved');
+                const analFin = new THREE.Mesh(analGeometry, finMaterial);
+                analFin.position.set(-0.2, -0.5, 0);
+                analFin.rotation.set(-Math.PI/2, 0, 0);
+                fishGroup.add(analFin);
+                
+                // Add species-specific features
+                if (species === 'angelfish') {
+                    dorsalFin.scale.set(1, 2.0, 1);
+                    dorsalFin.position.y = 0.8;
+                    analFin.scale.set(1, 1.8, 1);
+                    analFin.position.y = -0.7;
+                } else if (species === 'betta') {
+                    // Enhance betta fins for flowing appearance
+                    tail.scale.set(1.5, 1.3, 1);
+                    dorsalFin.scale.set(1.2, 1.4, 1);
+                    leftPectoral.scale.set(1.4, 1.6, 1);
+                    rightPectoral.scale.set(1.4, 1.6, 1);
+                } else if (species === 'tetra') {
+                    // Smaller, more streamlined
+                    fishGroup.scale.set(0.7, 0.7, 0.7);
+                }
+                
+                // Store species info
+                fishGroup.userData.species = species;
+                fishGroup.userData.config = config;
+                
+                // Store fin references for animation
+                fishGroup.userData.fins = {
+                    tail: tail,
+                    dorsal: dorsalFin,
+                    leftPectoral: leftPectoral,
+                    rightPectoral: rightPectoral,
+                    anal: analFin
+                };
+                
+                // Store eye references for tracking
+                fishGroup.userData.eyes = {
+                    leftEye: leftEye,
+                    rightEye: rightEye,
+                    leftPupil: leftPupil,
+                    rightPupil: rightPupil
+                };
+                
+                return fishGroup;
+            }
+            
+            getFishConfig(species) {
+                const configs = {
+                    tropical: {
+                        bodyScale: { x: 0.8, y: 0.5, z: 0.4 },
+                        bodyColor: 0x4ecdc4,
+                        finColor: 0x45b7d1,
+                        size: 1.0,
+                        iridescent: true,
+                        translucent: false,
+                        personality: 'curious'
+                    },
+                    goldfish: {
+                        bodyScale: { x: 0.9, y: 0.6, z: 0.5 },
+                        bodyColor: 0xf9ca24,
+                        finColor: 0xff9500,
+                        size: 1.2,
+                        iridescent: false,
+                        translucent: false,
+                        personality: 'playful'
+                    },
+                    betta: {
+                        bodyScale: { x: 0.7, y: 0.4, z: 0.3 },
+                        bodyColor: 0x6c5ce7,
+                        finColor: 0xe056fd,
+                        size: 0.9,
+                        iridescent: true,
+                        translucent: true,
+                        personality: 'aggressive'
+                    },
+                    tetra: {
+                        bodyScale: { x: 0.6, y: 0.3, z: 0.25 },
+                        bodyColor: 0x0984e3,
+                        finColor: 0x74b9ff,
+                        size: 0.6,
+                        iridescent: true,
+                        translucent: true,
+                        personality: 'social'
+                    },
+                    angelfish: {
+                        bodyScale: { x: 0.7, y: 0.8, z: 0.3 },
+                        bodyColor: 0xa29bfe,
+                        finColor: 0x6c5ce7,
+                        size: 1.3,
+                        iridescent: false,
+                        translucent: false,
+                        personality: 'elegant'
+                    },
+                    clownfish: {
+                        bodyScale: { x: 0.7, y: 0.5, z: 0.4 },
+                        bodyColor: 0xff6348,
+                        finColor: 0xff9ff3,
+                        size: 0.8,
+                        iridescent: false,
+                        translucent: false,
+                        personality: 'playful'
+                    },
+                    tang: {
+                        bodyScale: { x: 0.6, y: 0.7, z: 0.4 },
+                        bodyColor: 0x3742fa,
+                        finColor: 0x70a1ff,
+                        size: 1.1,
+                        iridescent: true,
+                        translucent: false,
+                        personality: 'energetic'
+                    },
+                    koi: {
+                        bodyScale: { x: 1.2, y: 0.7, z: 0.6 },
+                        bodyColor: 0xff9ff3,
+                        finColor: 0xff6b6b,
+                        size: 1.8,
+                        iridescent: false,
+                        translucent: false,
+                        personality: 'wise'
+                    },
+                    rainbow: {
+                        bodyScale: { x: 0.8, y: 0.4, z: 0.3 },
+                        bodyColor: 0x7bed9f,
+                        finColor: 0x2ed573,
+                        size: 0.7,
+                        iridescent: true,
+                        translucent: true,
+                        personality: 'shy'
+                    },
+                    discus: {
+                        bodyScale: { x: 0.9, y: 1.0, z: 0.2 },
+                        bodyColor: 0xff3838,
+                        finColor: 0xff6b6b,
+                        size: 1.4,
+                        iridescent: true,
+                        translucent: false,
+                        personality: 'elegant'
+                    }
+                };
+                
+                return configs[species] || configs.tropical;
+            }
+            
+            setupUI() {
+                document.getElementById('feed-btn').onclick = () => this.feedFish();
+                document.getElementById('clean-btn').onclick = () => this.cleanTank();
+                document.getElementById('add-fish-btn').onclick = () => this.addFish();
+                document.getElementById('info-btn').onclick = () => this.showInfo();
+                
+                window.addEventListener('resize', () => this.onWindowResize());
+                
+                // Mouse tracking for fish interaction (OrbitControls handles camera movement)
+                const canvas = this.renderer.domElement;
+                canvas.addEventListener('mousemove', (event) => this.onMouseMove(event));
+                canvas.addEventListener('click', (event) => this.onMouseClick(event));
+                canvas.style.cursor = 'grab';
+                
+                // Keyboard shortcuts
+                window.addEventListener('keydown', (event) => this.onKeyDown(event));
+            }
+            
+            showInfo() {
+                const info = `
+                    🏠 Digital Fish Tank - Room Environment
+                    
+                    🎮 Current Mode: ${this.getModeName()}
+                    🐠 Fish Count: ${this.fish.length}
+                    
+                    📊 Capabilities:
+                    ${Object.entries(CAPABILITIES).map(([key, value]) => 
+                        `${key}: ${value ? '✅' : '❌'}`
+                    ).join('\n')}
+                    
+                    📷 360° Camera Controls:
+                    • Drag: Rotate around tank
+                    • Right-click drag: Pan view
+                    • Mouse wheel: Zoom in/out
+                    • Spacebar: Toggle auto-rotate
+                    • R: Reset camera
+                    • 1-4: Quick view presets
+                    
+                    🐠 Fish Interactions:
+                    • Click fish to pet them
+                    • Eyes follow your cursor
+                    • Each has unique personality
+                    • Realistic swimming with banking
+                    
+                    🏠 Room Features:
+                    • Realistic wood floor & walls
+                    • Professional tank stand
+                    • Dynamic lighting & shadows
+                    
+                    ${this.hasPhysics ? 
+                        '⚡ Physics: Realistic movement with collision detection' : 
+                        '🔧 Basic: Smooth animations without physics'
+                    }
+                `;
+                this.addMessage(info);
+            }
+            
+            feedFish() {
+                if (this.fish.length > 0) {
+                    this.addMessage('🍽️ Fed your fish!');
+                    this.createFoodParticles(this.fish[0].position);
+                }
+            }
+            
+            cleanTank() {
+                this.addMessage('🧽 Tank cleaned!');
+            }
+            
+            addFish() {
+                if (this.fish.length < 8) {
+                    // Create random species fish
+                    const newFish = this.createSingleFish();
+                    const species = newFish.userData.species;
+                    const config = newFish.userData.config;
+                    
+                    // Scale by species size
+                    newFish.scale.setScalar(config.size);
+                    
+                    newFish.position.set(
+                        (Math.random() - 0.5) * 8,
+                        (Math.random() - 0.5) * 4,
+                        (Math.random() - 0.5) * 4
+                    );
+                    
+                    if (this.hasPhysics && this.world) {
+                        // Physics version
+                        const shape = new CANNON.Sphere(0.5 * config.size);
+                        const body = new CANNON.Body({ mass: config.size });
+                        body.addShape(shape);
+                        body.position.copy(newFish.position);
+                        this.world.addBody(body);
+                        
+                        newFish.userData.body = body;
+                        newFish.userData.hasPhysics = true;
+                        newFish.userData.speed = 1 + Math.random() * config.size;
+                        newFish.userData.bounds = { x: 10, y: 6, z: 6 };
+                    } else {
+                        // Basic version
+                        newFish.userData.direction = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+                        newFish.userData.speed = (0.01 + Math.random() * 0.02) * config.size;
+                        newFish.userData.turnSpeed = 0.005 + Math.random() * 0.01;
+                        newFish.userData.bounds = { x: 10, y: 6, z: 6 };
+                        newFish.userData.hasPhysics = false;
+                    }
+                    
+                    // Add animation data
+                    newFish.userData.animationTime = Math.random() * Math.PI * 2;
+                    newFish.userData.finSpeed = 0.1 + Math.random() * 0.1;
+                    
+                    // Add personality and happiness data
+                    newFish.userData.personality = config.personality;
+                    newFish.userData.happiness = 70 + Math.random() * 30;
+                    newFish.userData.hunger = 50 + Math.random() * 50;
+                    newFish.userData.health = 85 + Math.random() * 15;
+                    newFish.userData.seekingPlayer = false;
+                    newFish.userData.personalityTimer = Math.random() * 100;
+                    newFish.userData.moodParticles = [];
+                    newFish.userData.moodTimer = 0;
+                    
+                    this.fish.push(newFish);
+                    this.scene.add(newFish);
+                    
+                    document.getElementById('fish-count').textContent = this.fish.length;
+                    this.addMessage(`🐠 Added ${species} fish! Total: ${this.fish.length}`);
+                } else {
+                    this.addMessage('❗ Tank is full! (Max 8 fish)');
+                }
+            }
+            
+            createFoodParticles(position) {
+                for (let i = 0; i < 15; i++) {
+                    const particle = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.05),
+                        new THREE.MeshBasicMaterial({ color: 0xffaa00 })
+                    );
+                    
+                    particle.position.copy(position);
+                    particle.position.y += 2;
+                    particle.position.x += (Math.random() - 0.5) * 1;
+                    particle.position.z += (Math.random() - 0.5) * 1;
+                    
+                    this.scene.add(particle);
+                    
+                    // Animate falling
+                    const animate = () => {
+                        particle.position.y -= 0.1;
+                        particle.rotation.x += 0.1;
+                        particle.rotation.y += 0.1;
+                        
+                        if (particle.position.y > position.y - 1) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            this.scene.remove(particle);
+                        }
+                    };
+                    setTimeout(() => animate(), i * 50);
+                }
+            }
+            
+            createHeartParticles(position) {
+                for (let i = 0; i < 8; i++) {
+                    // Create heart shape using two spheres
+                    const heartGroup = new THREE.Group();
+                    
+                    const heartMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xff69b4,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    
+                    // Two spheres to make a heart shape
+                    const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(0.08), heartMaterial);
+                    const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(0.08), heartMaterial);
+                    sphere1.position.set(-0.05, 0.05, 0);
+                    sphere2.position.set(0.05, 0.05, 0);
+                    
+                    const sphere3 = new THREE.Mesh(new THREE.SphereGeometry(0.06), heartMaterial);
+                    sphere3.position.set(0, -0.05, 0);
+                    
+                    heartGroup.add(sphere1);
+                    heartGroup.add(sphere2);
+                    heartGroup.add(sphere3);
+                    
+                    heartGroup.position.copy(position);
+                    heartGroup.position.y += 1 + Math.random() * 0.5;
+                    heartGroup.position.x += (Math.random() - 0.5) * 0.8;
+                    heartGroup.position.z += (Math.random() - 0.5) * 0.8;
+                    
+                    heartGroup.scale.setScalar(0.1);
+                    
+                    this.scene.add(heartGroup);
+                    
+                    // Animate floating up with fade
+                    let opacity = 0.8;
+                    const animate = () => {
+                        heartGroup.position.y += 0.02;
+                        heartGroup.scale.addScalar(0.002);
+                        opacity -= 0.015;
+                        
+                        heartMaterial.opacity = opacity;
+                        heartGroup.rotation.y += 0.05;
+                        
+                        if (opacity > 0) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            this.scene.remove(heartGroup);
+                        }
+                    };
+                    setTimeout(() => animate(), i * 100);
+                }
+            }
+            
+            updateWaterEffects() {
+                // Animate bubbles rising
+                if (this.bubbles && Array.isArray(this.bubbles)) {
+                    this.bubbles.forEach(bubble => {
+                        const userData = bubble.userData;
+                        userData.time += 0.02;
+                        
+                        // Rise up slowly
+                        bubble.position.y += userData.speed;
+                        
+                        // Gentle side-to-side sway
+                        bubble.position.x = userData.originalX + Math.sin(userData.time) * userData.sway * 50;
+                        
+                        // Reset bubble when it reaches top
+                        if (bubble.position.y > 8) {
+                            bubble.position.y = -8;
+                            bubble.position.x = (Math.random() - 0.5) * 20;
+                            bubble.position.z = (Math.random() - 0.5) * 12;
+                            userData.originalX = bubble.position.x;
+                        }
+                    });
+                }
+                
+                // Animate water caustics with realistic motion
+                if (this.caustics && Array.isArray(this.caustics) && this.caustics.length > 0) {
+                    const time = Date.now() * 0.001;
+                    this.caustics.forEach((caustics, index) => {
+                        if (caustics && caustics.material) {
+                            // Each layer moves at different speeds for depth
+                            const speed = (index + 1) * 0.0005;
+                            const amplitude = 0.03 + index * 0.02;
+                            
+                            // Flowing caustic motion
+                            caustics.material.opacity = (0.05 + index * 0.05) + Math.sin(time * (1 + index * 0.3)) * amplitude;
+                            caustics.rotation.z += speed;
+                            
+                            // Gentle position drift
+                            caustics.position.x += Math.sin(time * 0.3 + index) * 0.001;
+                            caustics.position.z += Math.cos(time * 0.4 + index) * 0.001;
+                            
+                            // Keep caustics in bounds
+                            if (Math.abs(caustics.position.x) > 2) {
+                                caustics.position.x = 0;
+                            }
+                            if (Math.abs(caustics.position.z) > 2) {
+                                caustics.position.z = 0;
+                            }
+                        }
+                    });
+                } else if (this.caustics && !Array.isArray(this.caustics)) {
+                    console.warn('⚠️ this.caustics is not an array:', typeof this.caustics);
+                }
+            }
+            
+            updateFish() {
+                this.fish.forEach(fish => {
+                    const userData = fish.userData;
+                    
+                    // Initialize velocity and acceleration tracking if not present
+                    if (!userData.velocity) {
+                        userData.velocity = new THREE.Vector3();
+                        userData.targetVelocity = new THREE.Vector3();
+                        userData.acceleration = 0.003;
+                        userData.maxSpeed = userData.speed;
+                        userData.currentSpeed = 0;
+                        userData.bankingAngle = 0;
+                        userData.targetBankingAngle = 0;
+                        userData.lastDirection = userData.direction.clone();
+                    }
+                    
+                    if (userData.hasPhysics && userData.body) {
+                        // Physics-based movement
+                        fish.position.copy(userData.body.position);
+                        fish.quaternion.copy(userData.body.quaternion);
+                        
+                        // Apply swimming forces with realistic fish behavior
+                        const swimForce = new CANNON.Vec3(
+                            (Math.random() - 0.5) * userData.speed * 0.5,
+                            (Math.random() - 0.5) * userData.speed * 0.3,
+                            (Math.random() - 0.5) * userData.speed * 0.5
+                        );
+                        userData.body.applyForce(swimForce);
+                        
+                        // Keep in bounds with smoother bouncing
+                        this.keepFishInBounds(userData.body, userData.bounds, true);
+                        
+                    } else {
+                        // Enhanced realistic movement system
+                        userData.personalityTimer += 1;
+                        this.applyPersonalityBehavior(fish, userData);
+                        
+                        // Determine target direction based on behavior
+                        let targetDirection = userData.direction.clone();
+                        
+                        // Random direction changes with personality influence
+                        let changeChance = this.getDirectionChangeChance(userData.personality);
+                        
+                        if (Math.random() < changeChance) {
+                            const randomTurn = new THREE.Vector3(
+                                (Math.random() - 0.5) * userData.turnSpeed * 2,
+                                (Math.random() - 0.5) * userData.turnSpeed * 0.8,
+                                (Math.random() - 0.5) * userData.turnSpeed * 2
+                            );
+                            targetDirection.add(randomTurn);
+                            targetDirection.normalize();
+                        }
+                        
+                        // Check for wall avoidance with smooth turning
+                        const wallAvoidance = this.calculateWallAvoidance(fish.position, userData.bounds);
+                        if (wallAvoidance.length() > 0) {
+                            targetDirection.lerp(wallAvoidance, 0.3);
+                            targetDirection.normalize();
+                        }
+                        
+                        // Smooth direction interpolation for realistic turning
+                        userData.direction.lerp(targetDirection, 0.05);
+                        userData.direction.normalize();
+                        
+                        // Calculate target speed based on personality and behavior
+                        let targetSpeed = userData.maxSpeed;
+                        if (userData.seekingPlayer) targetSpeed *= 1.8;
+                        if (userData.personality === 'energetic') targetSpeed *= 1.2;
+                        if (userData.personality === 'shy') targetSpeed *= 0.7;
+                        
+                        // Smooth speed interpolation (acceleration/deceleration)
+                        userData.currentSpeed = THREE.MathUtils.lerp(userData.currentSpeed, targetSpeed, userData.acceleration);
+                        
+                        // Calculate banking angle based on turn rate
+                        const turnRate = userData.direction.clone().sub(userData.lastDirection).length();
+                        userData.targetBankingAngle = Math.min(turnRate * 15, 0.4); // Max 0.4 radians banking
+                        userData.bankingAngle = THREE.MathUtils.lerp(userData.bankingAngle, userData.targetBankingAngle, 0.1);
+                        
+                        // Apply movement with current speed
+                        const movement = userData.direction.clone().multiplyScalar(userData.currentSpeed);
+                        fish.position.add(movement);
+                        
+                        // Smooth boundary handling
+                        this.keepFishInBounds(fish, userData.bounds, false);
+                        
+                        // Natural fish orientation with banking
+                        const lookAtTarget = fish.position.clone().add(userData.direction);
+                        fish.lookAt(lookAtTarget);
+                        
+                        // Apply banking rotation (fish tilts when turning)
+                        fish.rotation.z += userData.bankingAngle * (userData.direction.x > 0 ? 1 : -1);
+                        
+                        // Store last direction for banking calculation
+                        userData.lastDirection.copy(userData.direction);
+                    }
+                    
+                    // Enhanced organic fin animations
+                    if (userData.fins && userData.animationTime !== undefined) {
+                        userData.animationTime += userData.finSpeed || 0.08;
+                        const swimIntensity = userData.currentSpeed / userData.maxSpeed;
+                        
+                        // Tail undulation - varies with swimming speed
+                        if (userData.fins.tail) {
+                            const tailSwayAmplitude = 0.2 + swimIntensity * 0.3;
+                            const tailSwaySpeed = 1.5 + swimIntensity * 1.5;
+                            userData.fins.tail.rotation.y = Math.sin(userData.animationTime * tailSwaySpeed) * tailSwayAmplitude;
+                            
+                            // Additional tail deformation for flowing fins (betta)
+                            if (userData.species === 'betta') {
+                                userData.fins.tail.rotation.x = Math.sin(userData.animationTime * 0.8) * 0.1;
+                                userData.fins.tail.rotation.z = Math.sin(userData.animationTime * 1.2) * 0.15;
+                            }
+                        }
+                        
+                        // Pectoral fins - synchronized swimming motion
+                        const pectoralFreq = 2.5 + swimIntensity * 2;
+                        const pectoralAmplitude = 0.3 + swimIntensity * 0.4;
+                        
+                        if (userData.fins.leftPectoral) {
+                            userData.fins.leftPectoral.rotation.z = 0.8 + Math.sin(userData.animationTime * pectoralFreq) * pectoralAmplitude;
+                            userData.fins.leftPectoral.rotation.x = Math.sin(userData.animationTime * pectoralFreq * 0.7) * 0.2;
+                        }
+                        if (userData.fins.rightPectoral) {
+                            userData.fins.rightPectoral.rotation.z = -0.8 - Math.sin(userData.animationTime * pectoralFreq) * pectoralAmplitude;
+                            userData.fins.rightPectoral.rotation.x = Math.sin(userData.animationTime * pectoralFreq * 0.7) * 0.2;
+                        }
+                        
+                        // Dorsal fin - stabilization movement
+                        if (userData.fins.dorsal) {
+                            const dorsalMovement = Math.sin(userData.animationTime * 1.2) * 0.08;
+                            userData.fins.dorsal.rotation.x = dorsalMovement + userData.bankingAngle * 0.3;
+                            
+                            // Wave motion for angelfish
+                            if (userData.species === 'angelfish') {
+                                userData.fins.dorsal.rotation.z = Math.sin(userData.animationTime * 0.9) * 0.05;
+                            }
+                        }
+                        
+                        // Anal fin - coordinated with dorsal
+                        if (userData.fins.anal) {
+                            userData.fins.anal.rotation.x = Math.sin(userData.animationTime * 1.4) * 0.06;
+                            userData.fins.anal.rotation.z = Math.sin(userData.animationTime * 0.8) * 0.04;
+                        }
+                    }
+                    
+                    // Eye tracking and cursor awareness
+                    if (userData.eyes) {
+                        const fishPosition = fish.position;
+                        const mouseDirection = this.mouseWorldPosition.clone().sub(fishPosition).normalize();
+                        
+                        // Calculate distance to mouse for awareness level
+                        const distanceToMouse = fishPosition.distanceTo(this.mouseWorldPosition);
+                        const awarenessRange = 12; // Fish become aware within this distance
+                        const awareness = Math.max(0, 1 - (distanceToMouse / awarenessRange));
+                        
+                        // Make pupils look toward mouse when aware
+                        if (awareness > 0.1) {
+                            const eyeTrackingStrength = awareness * 0.15; // How much pupils can move
+                            
+                            // Left pupil tracking
+                            const leftPupilBasePos = new THREE.Vector3(0.45, 0.2, 0.3);
+                            const leftPupilOffset = mouseDirection.clone().multiplyScalar(eyeTrackingStrength);
+                            userData.eyes.leftPupil.position.copy(leftPupilBasePos).add(leftPupilOffset);
+                            
+                            // Right pupil tracking
+                            const rightPupilBasePos = new THREE.Vector3(0.45, 0.2, -0.3);
+                            const rightPupilOffset = mouseDirection.clone().multiplyScalar(eyeTrackingStrength);
+                            userData.eyes.rightPupil.position.copy(rightPupilBasePos).add(rightPupilOffset);
+                            
+                            // Fish awareness behavior - swim toward mouse occasionally
+                            if (awareness > 0.5 && Math.random() < 0.005 && !userData.hasPhysics) {
+                                userData.seekingPlayer = true;
+                                userData.seekTarget = this.mouseWorldPosition.clone();
+                                setTimeout(() => {
+                                    userData.seekingPlayer = false;
+                                }, 3000 + Math.random() * 2000);
+                            }
+                        }
+                    }
+                    
+                    // Player seeking behavior (when fish want to swim toward cursor)
+                    if (userData.seekingPlayer && userData.seekTarget && !userData.hasPhysics) {
+                        const seekDirection = userData.seekTarget.clone().sub(fish.position).normalize();
+                        const seekSpeed = userData.speed * 2; // Swim faster when seeking
+                        
+                        // Blend seek direction with current direction
+                        userData.direction.lerp(seekDirection, 0.1);
+                        userData.direction.normalize();
+                        
+                        // Move toward target
+                        const movement = userData.direction.clone().multiplyScalar(seekSpeed);
+                        fish.position.add(movement);
+                        
+                        // Stop seeking if close enough
+                        if (fish.position.distanceTo(userData.seekTarget) < 1) {
+                            userData.seekingPlayer = false;
+                        }
+                    }
+                    
+                    // Update mood particles and auras
+                    this.updateFishMoodEffects(fish, userData);
+                });
+            }
+            
+            updateFishMoodEffects(fish, userData) {
+                userData.moodTimer += 1;
+                
+                // Determine current mood based on stats
+                let mood = 'neutral';
+                if (userData.happiness > 80) mood = 'happy';
+                else if (userData.happiness < 40) mood = 'sad';
+                else if (userData.hunger < 30) mood = 'hungry';
+                else if (userData.health < 50) mood = 'sick';
+                
+                // Create mood particles occasionally
+                if (userData.moodTimer % 60 === 0) {
+                    this.createMoodParticle(fish, mood, userData.personality);
+                }
+                
+                // Update existing mood particles
+                userData.moodParticles.forEach((particle, index) => {
+                    if (particle.userData) {
+                        particle.userData.life -= 1;
+                        particle.position.y += particle.userData.speed;
+                        particle.position.x += particle.userData.drift;
+                        particle.material.opacity = particle.userData.life / particle.userData.maxLife;
+                        particle.scale.addScalar(0.002);
+                        
+                        // Remove expired particles
+                        if (particle.userData.life <= 0) {
+                            this.scene.remove(particle);
+                            userData.moodParticles.splice(index, 1);
+                        }
+                    }
+                });
+                
+                // Personality-based aura effects
+                this.updatePersonalityAura(fish, userData);
+            }
+            
+            createMoodParticle(fish, mood, personality) {
+                let particleColor = 0xffffff;
+                let particleSize = 0.05;
+                let particleSpeed = 0.02;
+                
+                // Mood-based particle properties
+                switch (mood) {
+                    case 'happy':
+                        particleColor = 0xffd700; // Golden sparkles
+                        particleSize = 0.08;
+                        break;
+                    case 'hungry':
+                        particleColor = 0xff6b6b; // Red hunger bubbles
+                        particleSize = 0.1;
+                        particleSpeed = 0.01;
+                        break;
+                    case 'sad':
+                        particleColor = 0x6c5ce7; // Purple/blue tears
+                        particleSize = 0.06;
+                        particleSpeed = 0.015;
+                        break;
+                    case 'sick':
+                        particleColor = 0x95a5a6; // Gray/dull particles
+                        particleSize = 0.04;
+                        particleSpeed = 0.008;
+                        break;
+                    default:
+                        particleColor = 0x74b9ff; // Light blue neutral
+                        break;
+                }
+                
+                // Personality affects particle behavior
+                if (personality === 'energetic') {
+                    particleSpeed *= 2;
+                    particleSize *= 1.2;
+                } else if (personality === 'shy') {
+                    particleSpeed *= 0.5;
+                    particleSize *= 0.8;
+                } else if (personality === 'elegant') {
+                    particleColor = 0xe17055; // Rose gold for elegant fish
+                }
+                
+                const particle = new THREE.Mesh(
+                    new THREE.SphereGeometry(particleSize),
+                    new THREE.MeshBasicMaterial({
+                        color: particleColor,
+                        transparent: true,
+                        opacity: 0.7
+                    })
+                );
+                
+                // Position near fish with slight randomness
+                particle.position.copy(fish.position);
+                particle.position.x += (Math.random() - 0.5) * 1;
+                particle.position.y += (Math.random() - 0.5) * 0.5;
+                particle.position.z += (Math.random() - 0.5) * 1;
+                
+                particle.userData = {
+                    speed: particleSpeed,
+                    drift: (Math.random() - 0.5) * 0.01,
+                    life: 180,
+                    maxLife: 180
+                };
+                
+                fish.userData.moodParticles.push(particle);
+                this.scene.add(particle);
+            }
+            
+            updatePersonalityAura(fish, userData) {
+                // Create subtle aura effects based on personality
+                const personality = userData.personality;
+                
+                if (userData.moodTimer % 120 === 0) {
+                    let auraColor = 0x74b9ff;
+                    let auraSize = 0.3;
+                    
+                    switch (personality) {
+                        case 'playful':
+                            auraColor = 0xf9ca24; // Bright yellow
+                            break;
+                        case 'elegant':
+                            auraColor = 0xa29bfe; // Soft purple
+                            auraSize = 0.4;
+                            break;
+                        case 'energetic':
+                            auraColor = 0x00cec9; // Electric cyan
+                            break;
+                        case 'shy':
+                            auraColor = 0xdda0dd; // Soft lavender
+                            auraSize = 0.2;
+                            break;
+                        case 'aggressive':
+                            auraColor = 0xff6b6b; // Red energy
+                            break;
+                        case 'wise':
+                            auraColor = 0xfdcb6e; // Golden wisdom
+                            break;
+                    }
+                    
+                    const aura = new THREE.Mesh(
+                        new THREE.SphereGeometry(auraSize),
+                        new THREE.MeshBasicMaterial({
+                            color: auraColor,
+                            transparent: true,
+                            opacity: 0.15
+                        })
+                    );
+                    
+                    aura.position.copy(fish.position);
+                    aura.userData = {
+                        speed: 0.01,
+                        life: 200,
+                        maxLife: 200,
+                        expansion: 0.002
+                    };
+                    
+                    this.scene.add(aura);
+                    
+                    // Animate aura
+                    const animateAura = () => {
+                        aura.userData.life -= 1;
+                        aura.scale.addScalar(aura.userData.expansion);
+                        aura.material.opacity = (aura.userData.life / aura.userData.maxLife) * 0.15;
+                        
+                        if (aura.userData.life > 0) {
+                            requestAnimationFrame(animateAura);
+                        } else {
+                            this.scene.remove(aura);
+                        }
+                    };
+                    animateAura();
+                }
+            }
+            
+            // Helper functions for enhanced fish movement
+            getDirectionChangeChance(personality) {
+                const baseChance = 0.008;
+                switch (personality) {
+                    case 'energetic': return baseChance * 2.5;
+                    case 'playful': return baseChance * 1.8;
+                    case 'curious': return baseChance * 1.5;
+                    case 'aggressive': return baseChance * 1.3;
+                    case 'shy': return baseChance * 0.4;
+                    case 'elegant': return baseChance * 0.6;
+                    case 'wise': return baseChance * 0.5;
+                    default: return baseChance;
+                }
+            }
+            
+            calculateWallAvoidance(position, bounds) {
+                const avoidanceForce = new THREE.Vector3();
+                const margin = 2; // Start avoiding walls at this distance
+                
+                // Check each wall and calculate avoidance force
+                if (position.x > bounds.x - margin) {
+                    avoidanceForce.x -= (position.x - (bounds.x - margin)) / margin;
+                }
+                if (position.x < -bounds.x + margin) {
+                    avoidanceForce.x += (-bounds.x + margin - position.x) / margin;
+                }
+                if (position.y > bounds.y - margin) {
+                    avoidanceForce.y -= (position.y - (bounds.y - margin)) / margin;
+                }
+                if (position.y < -bounds.y + margin) {
+                    avoidanceForce.y += (-bounds.y + margin - position.y) / margin;
+                }
+                if (position.z > bounds.z - margin) {
+                    avoidanceForce.z -= (position.z - (bounds.z - margin)) / margin;
+                }
+                if (position.z < -bounds.z + margin) {
+                    avoidanceForce.z += (-bounds.z + margin - position.z) / margin;
+                }
+                
+                return avoidanceForce.normalize();
+            }
+            
+            keepFishInBounds(fishOrBody, bounds, isPhysics) {
+                if (isPhysics) {
+                    // Physics body boundary handling
+                    if (Math.abs(fishOrBody.position.x) > bounds.x) {
+                        fishOrBody.position.x = Math.sign(fishOrBody.position.x) * bounds.x;
+                        fishOrBody.velocity.x *= -0.3; // Dampened bounce
+                    }
+                    if (Math.abs(fishOrBody.position.y) > bounds.y) {
+                        fishOrBody.position.y = Math.sign(fishOrBody.position.y) * bounds.y;
+                        fishOrBody.velocity.y *= -0.3;
+                    }
+                    if (Math.abs(fishOrBody.position.z) > bounds.z) {
+                        fishOrBody.position.z = Math.sign(fishOrBody.position.z) * bounds.z;
+                        fishOrBody.velocity.z *= -0.3;
+                    }
+                } else {
+                    // Regular fish boundary handling
+                    const margin = 0.5;
+                    if (Math.abs(fishOrBody.position.x) > bounds.x - margin) {
+                        fishOrBody.position.x = Math.sign(fishOrBody.position.x) * (bounds.x - margin);
+                    }
+                    if (Math.abs(fishOrBody.position.y) > bounds.y - margin) {
+                        fishOrBody.position.y = Math.sign(fishOrBody.position.y) * (bounds.y - margin);
+                    }
+                    if (Math.abs(fishOrBody.position.z) > bounds.z - margin) {
+                        fishOrBody.position.z = Math.sign(fishOrBody.position.z) * (bounds.z - margin);
+                    }
+                }
+            }
+            
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                // Update OrbitControls for smooth camera movement
+                if (this.controls) {
+                    this.controls.update();
+                }
+                
+                // Update physics world if available
+                if (this.hasPhysics && this.world) {
+                    this.world.step(1/60);
+                }
+                
+                this.updateFish();
+                this.updateWaterEffects();
+                this.renderer.render(this.scene, this.camera);
+            }
+            
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+            
+            onKeyDown(event) {
+                switch(event.key.toLowerCase()) {
+                    case ' ': // Spacebar
+                        event.preventDefault();
+                        if (this.controls) {
+                            this.controls.autoRotate = !this.controls.autoRotate;
+                            const status = this.controls.autoRotate ? 'ON' : 'OFF';
+                            this.addMessage(`🔄 Auto-rotate ${status}`);
+                        }
+                        break;
+                    case 'r':
+                        // Reset camera to default position
+                        if (this.controls) {
+                            this.controls.reset();
+                            this.addMessage('📷 Camera reset to default view');
+                        } else {
+                            this.camera.position.set(0, 15, 20);
+                            this.camera.lookAt(0, 0, 0);
+                            this.addMessage('📷 Camera reset to default view');
+                        }
+                        break;
+                    case '1':
+                        // Front view
+                        if (this.controls) {
+                            this.camera.position.set(0, 2, 25);
+                            this.controls.target.set(0, 2, 0);
+                            this.addMessage('📷 Front view');
+                        }
+                        break;
+                    case '2':
+                        // Side view
+                        if (this.controls) {
+                            this.camera.position.set(25, 5, 0);
+                            this.controls.target.set(0, 2, 0);
+                            this.addMessage('📷 Side view');
+                        }
+                        break;
+                    case '3':
+                        // Top view
+                        if (this.controls) {
+                            this.camera.position.set(0, 25, 0);
+                            this.controls.target.set(0, 2, 0);
+                            this.addMessage('📷 Top view');
+                        }
+                        break;
+                    case '4':
+                        // Corner view
+                        if (this.controls) {
+                            this.camera.position.set(20, 15, 20);
+                            this.controls.target.set(0, 2, 0);
+                            this.addMessage('📷 Corner view');
+                        }
+                        break;
+                }
+            }
+            
+            onMouseMove(event) {
+                const canvas = this.renderer.domElement;
+                const rect = canvas.getBoundingClientRect();
+                
+                // Convert to normalized device coordinates (-1 to +1)
+                this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                
+                // Get 3D world position from mouse coordinates
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const intersects = this.raycaster.intersectObject(this.scene, true);
+                
+                if (intersects.length > 0) {
+                    this.mouseWorldPosition.copy(intersects[0].point);
+                } else {
+                    // Project mouse to a plane at z=0 (center of tank)
+                    const vector = new THREE.Vector3(this.mouse.x, this.mouse.y, 0.5);
+                    vector.unproject(this.camera);
+                    const dir = vector.sub(this.camera.position).normalize();
+                    const distance = -this.camera.position.z / dir.z;
+                    this.mouseWorldPosition.copy(this.camera.position).add(dir.multiplyScalar(distance));
+                }
+            }
+            
+            onMouseClick(event) {
+                // Find clicked fish
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const fishMeshes = [];
+                this.fish.forEach(fish => {
+                    fish.traverse(child => {
+                        if (child.isMesh) fishMeshes.push(child);
+                    });
+                });
+                
+                const intersects = this.raycaster.intersectObjects(fishMeshes);
+                if (intersects.length > 0) {
+                    const clickedFish = this.findFishFromMesh(intersects[0].object);
+                    if (clickedFish) {
+                        this.interactWithFish(clickedFish);
+                    }
+                }
+            }
+            
+            findFishFromMesh(mesh) {
+                // Find which fish this mesh belongs to
+                for (let fish of this.fish) {
+                    let found = false;
+                    fish.traverse(child => {
+                        if (child === mesh) found = true;
+                    });
+                    if (found) return fish;
+                }
+                return null;
+            }
+            
+            interactWithFish(fish) {
+                // Beautiful interaction feedback
+                this.addMessage(`🐠 You petted ${fish.userData.species}!`);
+                
+                // Add happiness and visual feedback
+                if (!fish.userData.happiness) fish.userData.happiness = 80;
+                fish.userData.happiness = Math.min(100, fish.userData.happiness + 10);
+                
+                // Create heart particles
+                this.createHeartParticles(fish.position);
+                
+                // Make fish swim toward player briefly
+                if (!fish.userData.hasPhysics) {
+                    fish.userData.seekingPlayer = true;
+                    fish.userData.seekTarget = this.mouseWorldPosition.clone();
+                    setTimeout(() => {
+                        fish.userData.seekingPlayer = false;
+                    }, 2000);
+                }
+            }
+            
+            applyPersonalityBehavior(fish, userData) {
+                const personality = userData.personality;
+                
+                switch (personality) {
+                    case 'playful':
+                        // Sudden speed bursts and loop-de-loops
+                        if (userData.personalityTimer % 300 === 0) {
+                            userData.speed *= 2;
+                            setTimeout(() => userData.speed /= 2, 1000);
+                        }
+                        if (userData.personalityTimer % 400 === 0) {
+                            // Do a little spin
+                            userData.direction.set(userData.direction.z, userData.direction.y, -userData.direction.x);
+                        }
+                        break;
+                        
+                    case 'shy':
+                        // Hide behind decorations, slower movement
+                        userData.speed *= 0.7;
+                        // Move toward corners/edges when nervous
+                        if (Math.random() < 0.001) {
+                            const hideSpot = new THREE.Vector3(
+                                (Math.random() > 0.5 ? 1 : -1) * (userData.bounds.x * 0.8),
+                                -userData.bounds.y * 0.5,
+                                (Math.random() > 0.5 ? 1 : -1) * (userData.bounds.z * 0.8)
+                            );
+                            userData.direction.lerp(hideSpot.sub(fish.position).normalize(), 0.1);
+                        }
+                        break;
+                        
+                    case 'energetic':
+                        // Fast, erratic movement
+                        userData.speed *= 1.3;
+                        if (userData.personalityTimer % 180 === 0) {
+                            // Sudden direction change
+                            userData.direction.set(
+                                Math.random() - 0.5,
+                                Math.random() - 0.5,
+                                Math.random() - 0.5
+                            ).normalize();
+                        }
+                        break;
+                        
+                    case 'curious':
+                        // Investigate new areas, attracted to movement
+                        if (userData.personalityTimer % 500 === 0) {
+                            // Explore a random area
+                            const exploreTarget = new THREE.Vector3(
+                                (Math.random() - 0.5) * userData.bounds.x * 1.5,
+                                (Math.random() - 0.5) * userData.bounds.y * 1.5,
+                                (Math.random() - 0.5) * userData.bounds.z * 1.5
+                            );
+                            userData.direction.lerp(exploreTarget.sub(fish.position).normalize(), 0.05);
+                        }
+                        break;
+                        
+                    case 'elegant':
+                        // Graceful, smooth movements
+                        userData.speed *= 0.8;
+                        userData.turnSpeed *= 0.5;
+                        // Smooth sine wave motion
+                        const elegantOffset = new THREE.Vector3(
+                            Math.sin(userData.personalityTimer * 0.01) * 0.02,
+                            Math.cos(userData.personalityTimer * 0.008) * 0.015,
+                            0
+                        );
+                        fish.position.add(elegantOffset);
+                        break;
+                        
+                    case 'aggressive':
+                        // Territorial behavior, faster when other fish are near
+                        let nearbyFish = false;
+                        this.fish.forEach(otherFish => {
+                            if (otherFish !== fish && fish.position.distanceTo(otherFish.position) < 3) {
+                                nearbyFish = true;
+                            }
+                        });
+                        if (nearbyFish) {
+                            userData.speed *= 1.4;
+                            userData.finSpeed *= 1.5;
+                        }
+                        break;
+                        
+                    case 'social':
+                        // Try to stay near other fish (schooling behavior)
+                        let nearestFish = null;
+                        let minDistance = Infinity;
+                        this.fish.forEach(otherFish => {
+                            if (otherFish !== fish) {
+                                const distance = fish.position.distanceTo(otherFish.position);
+                                if (distance < minDistance) {
+                                    minDistance = distance;
+                                    nearestFish = otherFish;
+                                }
+                            }
+                        });
+                        if (nearestFish && minDistance > 2 && minDistance < 6) {
+                            // Swim toward nearby fish
+                            const socialDirection = nearestFish.position.clone().sub(fish.position).normalize();
+                            userData.direction.lerp(socialDirection, 0.02);
+                        }
+                        break;
+                        
+                    case 'wise':
+                        // Slow, deliberate movements, stays in center
+                        userData.speed *= 0.6;
+                        if (userData.personalityTimer % 600 === 0) {
+                            // Move toward center occasionally
+                            const centerDirection = new THREE.Vector3(0, 0, 0).sub(fish.position).normalize();
+                            userData.direction.lerp(centerDirection, 0.1);
+                        }
+                        break;
+                }
+            }
+            
+            addMessage(message) {
+                const messageLog = document.getElementById('message-log');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.style.whiteSpace = 'pre-line'; // Allow line breaks
+                messageDiv.textContent = message;
+                
+                messageLog.appendChild(messageDiv);
+                messageLog.scrollTop = messageLog.scrollHeight;
+                
+                // Keep last 8 messages
+                while (messageLog.children.length > 8) {
+                    messageLog.removeChild(messageLog.firstChild);
+                }
+            }
+            
+            showError(message) {
+                const loading = document.getElementById('loading');
+                loading.innerHTML = `
+                    <div class="loading-content">
+                        <div style="color: #ff4757; text-align: center;">
+                            <h3>❌ Critical Error</h3>
+                            <p>${message}</p>
+                            <button onclick="location.reload()" style="
+                                background: #ff6b35; 
+                                color: white; 
+                                border: none; 
+                                padding: 10px 20px; 
+                                border-radius: 5px; 
+                                cursor: pointer; 
+                                margin-top: 15px;
+                            ">🔄 Reload</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Start when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                try {
+                    new UltimateFishTank();
+                } catch (error) {
+                    console.error('❌ Failed to create ultimate fish tank:', error);
+                    document.getElementById('loading').innerHTML = `
+                        <div class="loading-content">
+                            <div style="color: #ff4757; text-align: center;">
+                                <h3>❌ Initialization Failed</h3>
+                                <p>${error.message}</p>
+                                <a href="/fallback.html" style="
+                                    background: #2ed573; 
+                                    color: white; 
+                                    text-decoration: none;
+                                    padding: 15px 25px; 
+                                    border-radius: 5px; 
+                                    display: inline-block;
+                                    margin-top: 15px;
+                                ">🐠 Try Basic Mode</a>
+                            </div>
+                        </div>
+                    `;
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
