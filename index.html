@@ -36,7 +36,7 @@
                     this.maxPolarAngle = Math.PI * 0.8; // 144 degrees from top
                     
                     // Target point (tank center)
-                    this.target = new THREE.Vector3(0, 0, 0);
+                    this.target = new THREE.Vector3(0, -4, 0);
                     
                     // Internal state
                     this.spherical = new THREE.Spherical();
@@ -170,7 +170,7 @@
                 
                 reset() {
                     this.target.set(0, 0, 0);
-                    this.camera.position.set(0, 15, 20);
+                    this.camera.position.set(0, 8, 20);
                     this.camera.lookAt(this.target);
                     this.sphericalDelta.set(0, 0, 0);
                     this.panOffset.set(0, 0, 0);
@@ -368,8 +368,8 @@
                 this.scene.background = null;
                 
                 this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-                this.camera.position.set(0, 15, 20);
-                this.camera.lookAt(0, 0, 0);
+                this.camera.position.set(0, 8, 20);
+                this.camera.lookAt(0, -4, 0);
                 
                 // Use WebGL if available, fallback to Canvas
                 const rendererOptions = { antialias: this.hasWebGL };
@@ -717,7 +717,7 @@
                     new THREE.BoxGeometry(tankWidth, tankHeight, glassThickness),
                     glassMaterial
                 );
-                frontGlass.position.set(0, 0, tankDepth/2);
+                frontGlass.position.set(0, -4, tankDepth/2);
                 this.scene.add(frontGlass);
                 
                 // Back glass panel
@@ -725,7 +725,7 @@
                     new THREE.BoxGeometry(tankWidth, tankHeight, glassThickness),
                     glassMaterial
                 );
-                backGlass.position.set(0, 0, -tankDepth/2);
+                backGlass.position.set(0, -4, -tankDepth/2);
                 this.scene.add(backGlass);
                 
                 // Left glass panel
@@ -733,7 +733,7 @@
                     new THREE.BoxGeometry(glassThickness, tankHeight, tankDepth),
                     glassMaterial
                 );
-                leftGlass.position.set(-tankWidth/2, 0, 0);
+                leftGlass.position.set(-tankWidth/2, -4, 0);
                 this.scene.add(leftGlass);
                 
                 // Right glass panel
@@ -741,7 +741,7 @@
                     new THREE.BoxGeometry(glassThickness, tankHeight, tankDepth),
                     glassMaterial
                 );
-                rightGlass.position.set(tankWidth/2, 0, 0);
+                rightGlass.position.set(tankWidth/2, -4, 0);
                 this.scene.add(rightGlass);
                 
                 // Bottom glass panel
@@ -749,7 +749,7 @@
                     new THREE.BoxGeometry(tankWidth, glassThickness, tankDepth),
                     glassMaterial
                 );
-                bottomGlass.position.set(0, -tankHeight/2, 0);
+                bottomGlass.position.set(0, -tankHeight/2 - 4, 0);
                 this.scene.add(bottomGlass);
                 
                 // Add glass edge highlights for realism
@@ -772,7 +772,7 @@
                         new THREE.CylinderGeometry(edgeThickness, edgeThickness, height),
                         material
                     );
-                    edge.position.set(...pos);
+                    edge.position.set(pos[0], pos[1] - 4, pos[2]);
                     this.scene.add(edge);
                 });
             }
@@ -794,7 +794,7 @@
                 });
                 
                 const water = new THREE.Mesh(waterGeometry, waterMaterial);
-                water.position.set(0, 0.5, 0);
+                water.position.set(0, 0.5 - 4, 0);
                 this.scene.add(water);
                 
                 // Create animated water caustics on the bottom
@@ -821,7 +821,7 @@
                     caustics.rotation.x = -Math.PI / 2;
                     caustics.position.set(
                         (Math.random() - 0.5) * 2,
-                        -7.8,
+                        -7.8 - 4,
                         (Math.random() - 0.5) * 2
                     );
                     caustics.material.opacity = 0.05 + i * 0.05;
@@ -874,14 +874,14 @@
                 const plantGeometry = new THREE.ConeGeometry(0.5, 3, 8);
                 const plantMaterial = new THREE.MeshStandardMaterial({ color: 0x2d5016 });
                 const plant = new THREE.Mesh(plantGeometry, plantMaterial);
-                plant.position.set(-6, -4, -4);
+                plant.position.set(-6, -4 - 4, -4);
                 this.scene.add(plant);
                 
                 // Rock
                 const rockGeometry = new THREE.DodecahedronGeometry(1);
                 const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
                 const rock = new THREE.Mesh(rockGeometry, rockMaterial);
-                rock.position.set(6, -4, 3);
+                rock.position.set(6, -4 - 4, 3);
                 this.scene.add(rock);
             }
             
@@ -902,7 +902,7 @@
                     
                     bubble.position.set(
                         (Math.random() - 0.5) * 20,
-                        -8 + Math.random() * 2,
+                        -12 + Math.random() * 2,
                         (Math.random() - 0.5) * 12
                     );
                     
@@ -938,7 +938,7 @@
                 const config = fish.userData.config;
                 
                 fish.scale.setScalar(config.size);
-                fish.position.set(0, 0, 0);
+                fish.position.set(0, -4, 0);
                 
                 if (this.hasPhysics && this.world) {
                     // Physics mode
@@ -951,13 +951,13 @@
                     fish.userData.body = body;
                     fish.userData.hasPhysics = true;
                     fish.userData.speed = 2 * config.size;
-                    fish.userData.bounds = { x: 10, y: 6, z: 6 };
+                    fish.userData.bounds = { x: 10, y: 8, z: 6 };
                 } else {
                     // Basic mode
                     fish.userData.direction = new THREE.Vector3(1, 0, 0);
                     fish.userData.speed = 0.02 * config.size;
                     fish.userData.turnSpeed = 0.01;
-                    fish.userData.bounds = { x: 10, y: 6, z: 6 };
+                    fish.userData.bounds = { x: 10, y: 8, z: 6 };
                     fish.userData.hasPhysics = false;
                 }
                 
@@ -1451,7 +1451,7 @@
                     
                     newFish.position.set(
                         (Math.random() - 0.5) * 8,
-                        (Math.random() - 0.5) * 4,
+                        (Math.random() - 0.5) * 4 - 4,
                         (Math.random() - 0.5) * 4
                     );
                     
@@ -1597,8 +1597,8 @@
                         bubble.position.x = userData.originalX + Math.sin(userData.time) * userData.sway * 50;
                         
                         // Reset bubble when it reaches top
-                        if (bubble.position.y > 8) {
-                            bubble.position.y = -8;
+                        if (bubble.position.y > 4) {
+                            bubble.position.y = -12;
                             bubble.position.x = (Math.random() - 0.5) * 20;
                             bubble.position.z = (Math.random() - 0.5) * 12;
                             userData.originalX = bubble.position.x;
@@ -2123,8 +2123,8 @@
                             this.controls.reset();
                             this.addMessage('📷 Camera reset to default view');
                         } else {
-                            this.camera.position.set(0, 15, 20);
-                            this.camera.lookAt(0, 0, 0);
+                            this.camera.position.set(0, 8, 20);
+                            this.camera.lookAt(0, -4, 0);
                             this.addMessage('📷 Camera reset to default view');
                         }
                         break;
@@ -2132,7 +2132,7 @@
                         // Front view
                         if (this.controls) {
                             this.camera.position.set(0, 2, 25);
-                            this.controls.target.set(0, 2, 0);
+                            this.controls.target.set(0, -4, 0);
                             this.addMessage('📷 Front view');
                         }
                         break;
@@ -2140,7 +2140,7 @@
                         // Side view
                         if (this.controls) {
                             this.camera.position.set(25, 5, 0);
-                            this.controls.target.set(0, 2, 0);
+                            this.controls.target.set(0, -4, 0);
                             this.addMessage('📷 Side view');
                         }
                         break;
@@ -2148,7 +2148,7 @@
                         // Top view
                         if (this.controls) {
                             this.camera.position.set(0, 25, 0);
-                            this.controls.target.set(0, 2, 0);
+                            this.controls.target.set(0, -4, 0);
                             this.addMessage('📷 Top view');
                         }
                         break;
@@ -2156,7 +2156,7 @@
                         // Corner view
                         if (this.controls) {
                             this.camera.position.set(20, 15, 20);
-                            this.controls.target.set(0, 2, 0);
+                            this.controls.target.set(0, -4, 0);
                             this.addMessage('📷 Corner view');
                         }
                         break;
