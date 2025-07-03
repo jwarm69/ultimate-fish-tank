@@ -55,6 +55,10 @@
                     this.panEnd = new THREE.Vector2();
                     this.panDelta = new THREE.Vector2();
                     
+                    // Store bound functions for proper cleanup
+                    this.onMouseMoveBound = this.onMouseMove.bind(this);
+                    this.onMouseUpBound = this.onMouseUp.bind(this);
+                    
                     this.setupEventListeners();
                     this.update();
                 }
@@ -74,8 +78,8 @@
                         this.panStart.set(event.clientX, event.clientY);
                     }
                     
-                    document.addEventListener('mousemove', this.onMouseMove.bind(this));
-                    document.addEventListener('mouseup', this.onMouseUp.bind(this));
+                    this.domElement.addEventListener('mousemove', this.onMouseMoveBound);
+                    this.domElement.addEventListener('mouseup', this.onMouseUpBound);
                 }
                 
                 onMouseMove(event) {
@@ -99,8 +103,8 @@
                 onMouseUp() {
                     this.rotating = false;
                     this.panning = false;
-                    document.removeEventListener('mousemove', this.onMouseMove.bind(this));
-                    document.removeEventListener('mouseup', this.onMouseUp.bind(this));
+                    this.domElement.removeEventListener('mousemove', this.onMouseMoveBound);
+                    this.domElement.removeEventListener('mouseup', this.onMouseUpBound);
                 }
                 
                 onMouseWheel(event) {
@@ -951,13 +955,13 @@
                     fish.userData.body = body;
                     fish.userData.hasPhysics = true;
                     fish.userData.speed = 2 * config.size;
-                    fish.userData.bounds = { x: 10, y: 8, z: 6 };
+                    fish.userData.bounds = { x: 11, y: { min: -10, max: 2 }, z: 7 };
                 } else {
                     // Basic mode
                     fish.userData.direction = new THREE.Vector3(1, 0, 0);
                     fish.userData.speed = 0.02 * config.size;
                     fish.userData.turnSpeed = 0.01;
-                    fish.userData.bounds = { x: 10, y: 8, z: 6 };
+                    fish.userData.bounds = { x: 11, y: { min: -10, max: 2 }, z: 7 };
                     fish.userData.hasPhysics = false;
                 }
                 
@@ -1466,13 +1470,13 @@
                         newFish.userData.body = body;
                         newFish.userData.hasPhysics = true;
                         newFish.userData.speed = 1 + Math.random() * config.size;
-                        newFish.userData.bounds = { x: 10, y: 6, z: 6 };
+                        newFish.userData.bounds = { x: 11, y: { min: -10, max: 2 }, z: 7 };
                     } else {
                         // Basic version
                         newFish.userData.direction = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
                         newFish.userData.speed = (0.01 + Math.random() * 0.02) * config.size;
                         newFish.userData.turnSpeed = 0.005 + Math.random() * 0.01;
-                        newFish.userData.bounds = { x: 10, y: 6, z: 6 };
+                        newFish.userData.bounds = { x: 11, y: { min: -10, max: 2 }, z: 7 };
                         newFish.userData.hasPhysics = false;
                     }
                     
@@ -2037,11 +2041,11 @@
                 if (position.x < -bounds.x + margin) {
                     avoidanceForce.x += (-bounds.x + margin - position.x) / margin;
                 }
-                if (position.y > bounds.y - margin) {
-                    avoidanceForce.y -= (position.y - (bounds.y - margin)) / margin;
+                if (position.y > bounds.y.max - margin) {
+                    avoidanceForce.y -= (position.y - (bounds.y.max - margin)) / margin;
                 }
-                if (position.y < -bounds.y + margin) {
-                    avoidanceForce.y += (-bounds.y + margin - position.y) / margin;
+                if (position.y < bounds.y.min + margin) {
+                    avoidanceForce.y += (bounds.y.min + margin - position.y) / margin;
                 }
                 if (position.z > bounds.z - margin) {
                     avoidanceForce.z -= (position.z - (bounds.z - margin)) / margin;
@@ -2060,8 +2064,12 @@
                         fishOrBody.position.x = Math.sign(fishOrBody.position.x) * bounds.x;
                         fishOrBody.velocity.x *= -0.3; // Dampened bounce
                     }
-                    if (Math.abs(fishOrBody.position.y) > bounds.y) {
-                        fishOrBody.position.y = Math.sign(fishOrBody.position.y) * bounds.y;
+                    if (fishOrBody.position.y > bounds.y.max) {
+                        fishOrBody.position.y = bounds.y.max;
+                        fishOrBody.velocity.y *= -0.3;
+                    }
+                    if (fishOrBody.position.y < bounds.y.min) {
+                        fishOrBody.position.y = bounds.y.min;
                         fishOrBody.velocity.y *= -0.3;
                     }
                     if (Math.abs(fishOrBody.position.z) > bounds.z) {
@@ -2074,8 +2082,11 @@
                     if (Math.abs(fishOrBody.position.x) > bounds.x - margin) {
                         fishOrBody.position.x = Math.sign(fishOrBody.position.x) * (bounds.x - margin);
                     }
-                    if (Math.abs(fishOrBody.position.y) > bounds.y - margin) {
-                        fishOrBody.position.y = Math.sign(fishOrBody.position.y) * (bounds.y - margin);
+                    if (fishOrBody.position.y > bounds.y.max - margin) {
+                        fishOrBody.position.y = bounds.y.max - margin;
+                    }
+                    if (fishOrBody.position.y < bounds.y.min + margin) {
+                        fishOrBody.position.y = bounds.y.min + margin;
                     }
                     if (Math.abs(fishOrBody.position.z) > bounds.z - margin) {
                         fishOrBody.position.z = Math.sign(fishOrBody.position.z) * (bounds.z - margin);
@@ -2262,7 +2273,7 @@
                         if (Math.random() < 0.001) {
                             const hideSpot = new THREE.Vector3(
                                 (Math.random() > 0.5 ? 1 : -1) * (userData.bounds.x * 0.8),
-                                -userData.bounds.y * 0.5,
+                                userData.bounds.y.min + (userData.bounds.y.max - userData.bounds.y.min) * 0.2,
                                 (Math.random() > 0.5 ? 1 : -1) * (userData.bounds.z * 0.8)
                             );
                             userData.direction.lerp(hideSpot.sub(fish.position).normalize(), 0.1);
@@ -2288,7 +2299,7 @@
                             // Explore a random area
                             const exploreTarget = new THREE.Vector3(
                                 (Math.random() - 0.5) * userData.bounds.x * 1.5,
-                                (Math.random() - 0.5) * userData.bounds.y * 1.5,
+                                userData.bounds.y.min + Math.random() * (userData.bounds.y.max - userData.bounds.y.min),
                                 (Math.random() - 0.5) * userData.bounds.z * 1.5
                             );
                             userData.direction.lerp(exploreTarget.sub(fish.position).normalize(), 0.05);
