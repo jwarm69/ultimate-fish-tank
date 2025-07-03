@@ -189,8 +189,6 @@
     <!-- Try Cannon-ES, fallback gracefully if it fails -->
     <script src="/libs/cannon-es.js" onerror="window.CANNON_FAILED=true"></script>
     
-    <!-- Socket.IO for multiplayer (optional) -->
-    <script src="/libs/socket.io.min.js" onerror="window.SOCKETIO_FAILED=true"></script>
 </head>
 <body>
     <div id="loading">
@@ -259,7 +257,6 @@
         const CAPABILITIES = {
             three: typeof THREE !== 'undefined',
             cannon: typeof CANNON !== 'undefined' && !window.CANNON_FAILED,
-            socketio: typeof io !== 'undefined' && !window.SOCKETIO_FAILED,
             webgl: (() => {
                 try {
                     const canvas = document.createElement('canvas');
@@ -279,10 +276,8 @@
                 this.renderer = null;
                 this.world = null;
                 this.fish = [];
-                this.socket = null;
                 
                 this.hasPhysics = CAPABILITIES.cannon;
-                this.hasMultiplayer = CAPABILITIES.socketio;
                 this.hasWebGL = CAPABILITIES.webgl;
                 
                 // Mouse tracking for fish interaction
@@ -312,7 +307,6 @@
                 
                 this.setupScene();
                 this.setupPhysics();
-                this.setupMultiplayer();
                 this.createTank();
                 this.createFish();
                 this.setupUI();
@@ -327,20 +321,14 @@
             }
             
             getModeName() {
-                if (this.hasPhysics && this.hasMultiplayer) return 'Full (Physics + Multiplayer)';
-                if (this.hasPhysics) return 'Physics Only';
-                if (this.hasMultiplayer) return 'Multiplayer Only';
+                if (this.hasPhysics) return 'Physics Mode';
                 return 'Basic Mode';
             }
             
             updateModeIndicator() {
                 const indicator = document.getElementById('mode-indicator');
-                if (this.hasPhysics && this.hasMultiplayer) {
-                    indicator.innerHTML = '⚡ Full Mode';
-                } else if (this.hasPhysics) {
+                if (this.hasPhysics) {
                     indicator.innerHTML = '🌍 Physics Mode';
-                } else if (this.hasMultiplayer) {
-                    indicator.innerHTML = '🌐 Multiplayer Mode';
                 } else {
                     indicator.innerHTML = '🔧 Basic Mode';
                 }
@@ -351,12 +339,10 @@
                 const capabilities = [];
                 if (CAPABILITIES.three) capabilities.push('✅ 3D Graphics');
                 if (CAPABILITIES.cannon) capabilities.push('✅ Physics');
-                if (CAPABILITIES.socketio) capabilities.push('✅ Multiplayer');
                 if (CAPABILITIES.webgl) capabilities.push('✅ WebGL');
                 
                 const missing = [];
                 if (!CAPABILITIES.cannon) missing.push('❌ Physics');
-                if (!CAPABILITIES.socketio) missing.push('❌ Multiplayer');
                 if (!CAPABILITIES.webgl) missing.push('❌ Hardware Acceleration');
                 
                 statusText.innerHTML = `
@@ -647,35 +633,6 @@
                 }
             }
             
-            setupMultiplayer() {
-                if (this.hasMultiplayer) {
-                    try {
-                        // Only try to connect if server is running
-                        this.socket = io('/', {
-                            timeout: 5000,
-                            transports: ['websocket', 'polling']
-                        });
-                        
-                        this.socket.on('connect', () => {
-                            console.log('🌐 Connected to multiplayer server');
-                            this.addMessage('🌐 Multiplayer connected!');
-                        });
-                        
-                        this.socket.on('connect_error', () => {
-                            console.warn('⚠️ Multiplayer server unavailable');
-                            this.addMessage('⚠️ Multiplayer unavailable');
-                            this.hasMultiplayer = false;
-                        });
-                        
-                    } catch (e) {
-                        console.error('❌ Multiplayer setup failed:', e);
-                        this.hasMultiplayer = false;
-                        this.addMessage('⚠️ Multiplayer unavailable');
-                    }
-                } else {
-                    console.log('🔧 Running without multiplayer');
-                }
-            }
             
             createTank() {
                 // Professional crystal glass tank with realistic materials
