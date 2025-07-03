@@ -36,7 +36,7 @@
                     this.maxPolarAngle = Math.PI * 0.8; // 144 degrees from top
                     
                     // Target point (tank center)
-                    this.target = new THREE.Vector3(0, -4, 0);
+                    this.target = new THREE.Vector3(0, 4, 0);
                     
                     // Internal state
                     this.spherical = new THREE.Spherical();
@@ -373,7 +373,7 @@
                 
                 this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
                 this.camera.position.set(0, 8, 20);
-                this.camera.lookAt(0, -4, 0);
+                this.camera.lookAt(0, 4, 0);
                 
                 // Use WebGL if available, fallback to Canvas
                 const rendererOptions = { antialias: this.hasWebGL };
@@ -539,7 +539,7 @@
                 // Main cabinet body
                 const standGeometry = new THREE.BoxGeometry(standWidth, standHeight, standDepth);
                 const stand = new THREE.Mesh(standGeometry, standMaterial);
-                stand.position.set(0, -8 + standHeight/2, 0);
+                stand.position.set(0, -12 + standHeight/2, 0);
                 stand.castShadow = true;
                 stand.receiveShadow = true;
                 this.scene.add(stand);
@@ -547,10 +547,10 @@
                 // Cabinet legs
                 const legGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2);
                 const legPositions = [
-                    [-standWidth/2 + 2, -8 - 1, -standDepth/2 + 2],
-                    [standWidth/2 - 2, -8 - 1, -standDepth/2 + 2],
-                    [-standWidth/2 + 2, -8 - 1, standDepth/2 - 2],
-                    [standWidth/2 - 2, -8 - 1, standDepth/2 - 2]
+                    [-standWidth/2 + 2, -12 - 1, -standDepth/2 + 2],
+                    [standWidth/2 - 2, -12 - 1, -standDepth/2 + 2],
+                    [-standWidth/2 + 2, -12 - 1, standDepth/2 - 2],
+                    [standWidth/2 - 2, -12 - 1, standDepth/2 - 2]
                 ];
                 
                 legPositions.forEach(pos => {
@@ -722,7 +722,7 @@
                     new THREE.BoxGeometry(tankWidth, tankHeight, glassThickness),
                     glassMaterial
                 );
-                frontGlass.position.set(0, -4, tankDepth/2);
+                frontGlass.position.set(0, 4, tankDepth/2);
                 this.scene.add(frontGlass);
                 
                 // Back glass panel
@@ -730,7 +730,7 @@
                     new THREE.BoxGeometry(tankWidth, tankHeight, glassThickness),
                     glassMaterial
                 );
-                backGlass.position.set(0, -4, -tankDepth/2);
+                backGlass.position.set(0, 4, -tankDepth/2);
                 this.scene.add(backGlass);
                 
                 // Left glass panel
@@ -738,7 +738,7 @@
                     new THREE.BoxGeometry(glassThickness, tankHeight, tankDepth),
                     glassMaterial
                 );
-                leftGlass.position.set(-tankWidth/2, -4, 0);
+                leftGlass.position.set(-tankWidth/2, 4, 0);
                 this.scene.add(leftGlass);
                 
                 // Right glass panel
@@ -746,7 +746,7 @@
                     new THREE.BoxGeometry(glassThickness, tankHeight, tankDepth),
                     glassMaterial
                 );
-                rightGlass.position.set(tankWidth/2, -4, 0);
+                rightGlass.position.set(tankWidth/2, 4, 0);
                 this.scene.add(rightGlass);
                 
                 // Bottom glass panel
@@ -754,7 +754,7 @@
                     new THREE.BoxGeometry(tankWidth, glassThickness, tankDepth),
                     glassMaterial
                 );
-                bottomGlass.position.set(0, -tankHeight/2 - 4, 0);
+                bottomGlass.position.set(0, 4 - tankHeight/2, 0);
                 this.scene.add(bottomGlass);
                 
                 // Add glass edge highlights for realism
@@ -777,7 +777,7 @@
                         new THREE.CylinderGeometry(edgeThickness, edgeThickness, height),
                         material
                     );
-                    edge.position.set(pos[0], pos[1] - 4, pos[2]);
+                    edge.position.set(pos[0], pos[1] + 4, pos[2]);
                     this.scene.add(edge);
                 });
             }
@@ -799,7 +799,7 @@
                 });
                 
                 const water = new THREE.Mesh(waterGeometry, waterMaterial);
-                water.position.set(0, 0.5 - 4, 0);
+                water.position.set(0, 4, 0);
                 this.scene.add(water);
                 
                 // Create animated water caustics on the bottom
@@ -826,7 +826,7 @@
                     caustics.rotation.x = -Math.PI / 2;
                     caustics.position.set(
                         (Math.random() - 0.5) * 2,
-                        -7.8 - 4,
+                        -3.8,
                         (Math.random() - 0.5) * 2
                     );
                     caustics.material.opacity = 0.05 + i * 0.05;
@@ -855,7 +855,7 @@
                         12,
                         (Math.random() - 0.5) * 2
                     );
-                    ledLight.target.position.set(0, -4, 0);
+                    ledLight.target.position.set(0, 4, 0);
                     ledLight.castShadow = true;
                     ledLight.shadow.mapSize.width = 1024;
                     ledLight.shadow.mapSize.height = 1024;
@@ -875,7 +875,7 @@
                 
                 // Internal tank lighting for fish visibility
                 const tankLight = new THREE.PointLight(0xffffff, 1.0, 30);
-                tankLight.position.set(0, 0, 0);
+                tankLight.position.set(0, 4, 0);
                 this.scene.add(tankLight);
             }
             
@@ -884,14 +884,14 @@
                 const plantGeometry = new THREE.ConeGeometry(0.5, 3, 8);
                 const plantMaterial = new THREE.MeshStandardMaterial({ color: 0x2d5016 });
                 const plant = new THREE.Mesh(plantGeometry, plantMaterial);
-                plant.position.set(-6, -4 - 4, -4);
+                plant.position.set(-6, -3, -4);
                 this.scene.add(plant);
                 
                 // Rock
                 const rockGeometry = new THREE.DodecahedronGeometry(1);
                 const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
                 const rock = new THREE.Mesh(rockGeometry, rockMaterial);
-                rock.position.set(6, -4 - 4, 3);
+                rock.position.set(6, -3, 3);
                 this.scene.add(rock);
             }
             
@@ -912,7 +912,7 @@
                     
                     bubble.position.set(
                         (Math.random() - 0.5) * 20,
-                        -12 + Math.random() * 2,
+                        -4 + Math.random() * 2,
                         (Math.random() - 0.5) * 12
                     );
                     
@@ -948,7 +948,7 @@
                 const config = fish.userData.config;
                 
                 fish.scale.setScalar(config.size * 2); // Temporarily double size for visibility
-                fish.position.set(2, -2, 4);
+                fish.position.set(2, 6, 4);
                 
                 if (this.hasPhysics && this.world) {
                     // Physics mode
@@ -961,13 +961,13 @@
                     fish.userData.body = body;
                     fish.userData.hasPhysics = true;
                     fish.userData.speed = 2 * config.size;
-                    fish.userData.bounds = { x: 12, y: { min: -10, max: 2 }, z: 8 };
+                    fish.userData.bounds = { x: 12, y: { min: -2, max: 10 }, z: 8 };
                 } else {
                     // Basic mode
                     fish.userData.direction = new THREE.Vector3(1, 0, 0);
                     fish.userData.speed = 0.02 * config.size;
                     fish.userData.turnSpeed = 0.01;
-                    fish.userData.bounds = { x: 12, y: { min: -10, max: 2 }, z: 8 };
+                    fish.userData.bounds = { x: 12, y: { min: -2, max: 10 }, z: 8 };
                     fish.userData.hasPhysics = false;
                 }
                 
@@ -1461,7 +1461,7 @@
                     
                     newFish.position.set(
                         (Math.random() - 0.5) * 8,
-                        (Math.random() - 0.5) * 4 - 4,
+                        (Math.random() - 0.5) * 4 + 4,
                         (Math.random() - 0.5) * 4
                     );
                     
@@ -1607,8 +1607,8 @@
                         bubble.position.x = userData.originalX + Math.sin(userData.time) * userData.sway * 50;
                         
                         // Reset bubble when it reaches top
-                        if (bubble.position.y > 4) {
-                            bubble.position.y = -12;
+                        if (bubble.position.y > 12) {
+                            bubble.position.y = -4;
                             bubble.position.x = (Math.random() - 0.5) * 20;
                             bubble.position.z = (Math.random() - 0.5) * 12;
                             userData.originalX = bubble.position.x;
@@ -2141,7 +2141,7 @@
                             this.addMessage('📷 Camera reset to default view');
                         } else {
                             this.camera.position.set(0, 8, 20);
-                            this.camera.lookAt(0, -4, 0);
+                            this.camera.lookAt(0, 4, 0);
                             this.addMessage('📷 Camera reset to default view');
                         }
                         break;
@@ -2149,7 +2149,7 @@
                         // Front view
                         if (this.controls) {
                             this.camera.position.set(0, 2, 25);
-                            this.controls.target.set(0, -4, 0);
+                            this.controls.target.set(0, 4, 0);
                             this.addMessage('📷 Front view');
                         }
                         break;
@@ -2157,7 +2157,7 @@
                         // Side view
                         if (this.controls) {
                             this.camera.position.set(25, 5, 0);
-                            this.controls.target.set(0, -4, 0);
+                            this.controls.target.set(0, 4, 0);
                             this.addMessage('📷 Side view');
                         }
                         break;
@@ -2165,7 +2165,7 @@
                         // Top view
                         if (this.controls) {
                             this.camera.position.set(0, 25, 0);
-                            this.controls.target.set(0, -4, 0);
+                            this.controls.target.set(0, 4, 0);
                             this.addMessage('📷 Top view');
                         }
                         break;
@@ -2173,7 +2173,7 @@
                         // Corner view
                         if (this.controls) {
                             this.camera.position.set(20, 15, 20);
-                            this.controls.target.set(0, -4, 0);
+                            this.controls.target.set(0, 4, 0);
                             this.addMessage('📷 Corner view');
                         }
                         break;
