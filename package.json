@@ -1,0 +1,41 @@
+{
+  "name": "ultimate-fish-tank",
+  "version": "2.0.0",
+  "description": "A mesmerizing 3D aquarium simulation with interactive fish care mechanics",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js,.ts --fix",
+    "format": "prettier --write \"src/**/*.{js,ts,css}\"",
+    "test": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "aquarium",
+    "3d",
+    "threejs",
+    "game",
+    "simulation",
+    "fish"
+  ],
+  "author": "Ultimate Fish Tank Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/three": "^0.158.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.45.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.5.1",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.2",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "dependencies": {
+    "cannon-es": "^0.20.0",
+    "three": "^0.158.0"
+  }
+}

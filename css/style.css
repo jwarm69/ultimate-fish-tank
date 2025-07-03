@@ -545,6 +545,90 @@ body {
     font-style: italic;
 }
 
+/* Fish Stats Panel */
+.fish-info-message {
+    text-align: center;
+    padding: 30px 15px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.fish-info-message p {
+    color: #00ffff;
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+}
+
+.fish-info-message small {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+}
+
+.fish-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fish-header h4 {
+    color: #00ffff;
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.personality-tag {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: capitalize;
+}
+
+.personality-tag.playful { background: linear-gradient(135deg, #ff6b6b, #feca57); }
+.personality-tag.shy { background: linear-gradient(135deg, #a8e6cf, #88d8c0); }
+.personality-tag.energetic { background: linear-gradient(135deg, #ff9ff3, #f368e0); }
+.personality-tag.elegant { background: linear-gradient(135deg, #cd84f1, #c44569); }
+.personality-tag.aggressive { background: linear-gradient(135deg, #ff5722, #ff7043); }
+.personality-tag.wise { background: linear-gradient(135deg, #ffd54f, #ffcc02); }
+.personality-tag.curious { background: linear-gradient(135deg, #4fc3f7, #29b6f6); }
+
+.fish-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 15px 0;
+}
+
+.fish-actions .small-btn {
+    font-size: 0.75rem;
+    padding: 6px 8px;
+}
+
+.fish-info {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 15px;
+}
+
+.fish-info p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+    margin: 5px 0;
+}
+
+.fish-info strong {
+    color: #00ffff;
+}
+
+.fish-info span {
+    color: white;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     #left-panel, #right-panel {

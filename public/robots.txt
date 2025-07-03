@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Ultimate Fish Tank - Interactive 3D Aquarium
+# https://github.com/yourusername/ultimate-fish-tank
