@@ -691,14 +691,15 @@
                 const glassMaterial = new THREE.MeshPhysicalMaterial({
                     color: 0xffffff,
                     metalness: 0.0,
-                    roughness: 0.02,
-                    transmission: 0.95,
+                    roughness: 0.01,
+                    transmission: 0.98,
                     transparent: true,
-                    thickness: 0.15,
-                    envMapIntensity: 1.5,
-                    clearcoat: 1.0,
-                    clearcoatRoughness: 0.1,
-                    ior: 1.5
+                    opacity: 0.1,
+                    thickness: 0.05,
+                    envMapIntensity: 0.5,
+                    clearcoat: 0.8,
+                    clearcoatRoughness: 0.05,
+                    ior: 1.52
                 });
                 
                 // Glass edge highlighting material
@@ -714,7 +715,7 @@
                 const tankWidth = 24;
                 const tankHeight = 16;
                 const tankDepth = 16;
-                const glassThickness = 0.2;
+                const glassThickness = 0.1;
                 
                 // Front glass panel
                 const frontGlass = new THREE.Mesh(
@@ -843,12 +844,12 @@
                 );
                 
                 // Main ambient underwater lighting
-                const underwaterAmbient = new THREE.AmbientLight(0x4488BB, 0.4);
+                const underwaterAmbient = new THREE.AmbientLight(0x6699DD, 0.8); // Brighter ambient light
                 this.scene.add(underwaterAmbient);
                 
                 // Top LED strip lighting (multiple lights for realism)
                 for (let i = 0; i < 5; i++) {
-                    const ledLight = new THREE.DirectionalLight(0xffffff, 0.3);
+                    const ledLight = new THREE.DirectionalLight(0xffffff, 0.6); // Brighter LED lights
                     ledLight.position.set(
                         (i - 2) * 4,
                         12,
@@ -871,6 +872,11 @@
                 const rimLight = new THREE.DirectionalLight(0x88CCFF, 0.2);
                 rimLight.position.set(15, 8, 10);
                 this.scene.add(rimLight);
+                
+                // Internal tank lighting for fish visibility
+                const tankLight = new THREE.PointLight(0xffffff, 1.0, 30);
+                tankLight.position.set(0, 0, 0);
+                this.scene.add(tankLight);
             }
             
             createDecorations() {
@@ -941,8 +947,8 @@
                 const fish = this.createSingleFish('goldfish');
                 const config = fish.userData.config;
                 
-                fish.scale.setScalar(config.size);
-                fish.position.set(0, -4, 0);
+                fish.scale.setScalar(config.size * 2); // Temporarily double size for visibility
+                fish.position.set(2, -2, 4);
                 
                 if (this.hasPhysics && this.world) {
                     // Physics mode
@@ -955,13 +961,13 @@
                     fish.userData.body = body;
                     fish.userData.hasPhysics = true;
                     fish.userData.speed = 2 * config.size;
-                    fish.userData.bounds = { x: 11, y: { min: -10, max: 2 }, z: 7 };
+                    fish.userData.bounds = { x: 12, y: { min: -10, max: 2 }, z: 8 };
                 } else {
                     // Basic mode
                     fish.userData.direction = new THREE.Vector3(1, 0, 0);
                     fish.userData.speed = 0.02 * config.size;
                     fish.userData.turnSpeed = 0.01;
-                    fish.userData.bounds = { x: 11, y: { min: -10, max: 2 }, z: 7 };
+                    fish.userData.bounds = { x: 12, y: { min: -10, max: 2 }, z: 8 };
                     fish.userData.hasPhysics = false;
                 }
                 
@@ -1132,12 +1138,12 @@
                     envMapIntensity: config.iridescent ? 1.5 : 0.5
                 });
                 
-                // Add subsurface scattering effect for organic look
-                if (config.translucent) {
-                    bodyMaterial.transparent = true;
-                    bodyMaterial.opacity = 0.95;
-                    bodyMaterial.transmission = 0.1;
-                }
+                // Temporarily disable translucency for better visibility
+                // if (config.translucent) {
+                //     bodyMaterial.transparent = true;
+                //     bodyMaterial.opacity = 0.95;
+                //     bodyMaterial.transmission = 0.1;
+                // }
                 
                 const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
                 fishGroup.add(body);
@@ -1182,7 +1188,7 @@
                 const finMaterial = new THREE.MeshStandardMaterial({ 
                     color: config.finColor,
                     transparent: true,
-                    opacity: 0.8,
+                    opacity: 1.0, // Make fins fully opaque for visibility
                     metalness: 0.1,
                     roughness: 0.7,
                     emissive: new THREE.Color(config.finColor).multiplyScalar(0.02),
@@ -1470,13 +1476,13 @@
                         newFish.userData.body = body;
                         newFish.userData.hasPhysics = true;
                         newFish.userData.speed = 1 + Math.random() * config.size;
-                        newFish.userData.bounds = { x: 11, y: { min: -10, max: 2 }, z: 7 };
+                        newFish.userData.bounds = { x: 12, y: { min: -10, max: 2 }, z: 8 };
                     } else {
                         // Basic version
                         newFish.userData.direction = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
                         newFish.userData.speed = (0.01 + Math.random() * 0.02) * config.size;
                         newFish.userData.turnSpeed = 0.005 + Math.random() * 0.01;
-                        newFish.userData.bounds = { x: 11, y: { min: -10, max: 2 }, z: 7 };
+                        newFish.userData.bounds = { x: 12, y: { min: -10, max: 2 }, z: 8 };
                         newFish.userData.hasPhysics = false;
                     }
                     
