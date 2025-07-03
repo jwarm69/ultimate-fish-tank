@@ -880,19 +880,259 @@
             }
             
             createDecorations() {
-                // Plant
-                const plantGeometry = new THREE.ConeGeometry(0.5, 3, 8);
-                const plantMaterial = new THREE.MeshStandardMaterial({ color: 0x2d5016 });
-                const plant = new THREE.Mesh(plantGeometry, plantMaterial);
-                plant.position.set(-6, -3, -4);
-                this.scene.add(plant);
+                // Create realistic substrate layer
+                this.createSubstrate();
                 
-                // Rock
-                const rockGeometry = new THREE.DodecahedronGeometry(1);
-                const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
-                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
-                rock.position.set(6, -3, 3);
-                this.scene.add(rock);
+                // Create realistic aquatic plants
+                this.createAquaticPlants();
+                
+                // Create natural rock formations
+                this.createNaturalRocks();
+                
+                // Add driftwood decorations
+                this.createDriftwood();
+            }
+            
+            createSubstrate() {
+                // Create sandy substrate layer
+                const substrateGeometry = new THREE.PlaneGeometry(22, 14);
+                
+                // Create procedural sand texture
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                
+                // Base sand color
+                ctx.fillStyle = '#D2B48C';
+                ctx.fillRect(0, 0, 512, 512);
+                
+                // Add sand grain texture
+                for (let i = 0; i < 5000; i++) {
+                    const x = Math.random() * 512;
+                    const y = Math.random() * 512;
+                    const size = Math.random() * 2 + 1;
+                    const brightness = Math.random() * 0.3 + 0.7;
+                    
+                    ctx.fillStyle = `rgba(${210*brightness}, ${180*brightness}, ${140*brightness}, 0.8)`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                const sandTexture = new THREE.CanvasTexture(canvas);
+                sandTexture.wrapS = THREE.RepeatWrapping;
+                sandTexture.wrapT = THREE.RepeatWrapping;
+                sandTexture.repeat.set(4, 4);
+                
+                const substrateMaterial = new THREE.MeshStandardMaterial({
+                    map: sandTexture,
+                    roughness: 0.9,
+                    metalness: 0.0,
+                    bumpMap: sandTexture,
+                    bumpScale: 0.1
+                });
+                
+                const substrate = new THREE.Mesh(substrateGeometry, substrateMaterial);
+                substrate.rotation.x = -Math.PI / 2;
+                substrate.position.set(0, -3.8, 0);
+                substrate.receiveShadow = true;
+                this.scene.add(substrate);
+                
+                // Add scattered pebbles on substrate
+                for (let i = 0; i < 15; i++) {
+                    const pebbleSize = Math.random() * 0.3 + 0.1;
+                    const pebbleGeometry = new THREE.SphereGeometry(pebbleSize, 8, 6);
+                    const pebbleColor = new THREE.Color().setHSL(0.1, 0.2, 0.4 + Math.random() * 0.3);
+                    const pebbleMaterial = new THREE.MeshStandardMaterial({
+                        color: pebbleColor,
+                        roughness: 0.8,
+                        metalness: 0.1
+                    });
+                    
+                    const pebble = new THREE.Mesh(pebbleGeometry, pebbleMaterial);
+                    pebble.position.set(
+                        (Math.random() - 0.5) * 18,
+                        -3.7,
+                        (Math.random() - 0.5) * 12
+                    );
+                    pebble.rotation.set(
+                        Math.random() * Math.PI,
+                        Math.random() * Math.PI,
+                        Math.random() * Math.PI
+                    );
+                    pebble.castShadow = true;
+                    this.scene.add(pebble);
+                }
+            }
+            
+            createAquaticPlants() {
+                // Create various aquatic plants
+                const plantTypes = [
+                    { name: 'vallisneria', color: 0x2d5016, height: 8, segments: 12 },
+                    { name: 'java_fern', color: 0x1a3d0a, height: 5, segments: 8 },
+                    { name: 'anubias', color: 0x0f2505, height: 4, segments: 6 }
+                ];
+                
+                plantTypes.forEach((type, typeIndex) => {
+                    for (let i = 0; i < 3; i++) {
+                        const plant = this.createRealisticPlant(type);
+                        plant.position.set(
+                            -8 + typeIndex * 3 + (Math.random() - 0.5) * 2,
+                            -3.7,
+                            -6 + i * 3 + (Math.random() - 0.5) * 1.5
+                        );
+                        plant.rotation.y = Math.random() * Math.PI * 2;
+                        this.scene.add(plant);
+                    }
+                });
+            }
+            
+            createRealisticPlant(config) {
+                const plantGroup = new THREE.Group();
+                const leafCount = 6 + Math.floor(Math.random() * 4);
+                
+                for (let i = 0; i < leafCount; i++) {
+                    // Create curved leaf geometry
+                    const leafGeometry = new THREE.PlaneGeometry(0.5, config.height / leafCount * 2);
+                    const positions = leafGeometry.attributes.position;
+                    
+                    // Add natural curve to leaves
+                    for (let j = 0; j < positions.count; j++) {
+                        const y = positions.getY(j);
+                        const curve = Math.sin(y / config.height * Math.PI) * 0.3;
+                        positions.setX(j, positions.getX(j) + curve);
+                    }
+                    
+                    leafGeometry.computeVertexNormals();
+                    
+                    const leafMaterial = new THREE.MeshStandardMaterial({
+                        color: config.color,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.9,
+                        roughness: 0.7
+                    });
+                    
+                    const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+                    leaf.position.y = config.height / 2;
+                    leaf.rotation.y = (i / leafCount) * Math.PI * 2 + Math.random() * 0.5;
+                    leaf.rotation.z = Math.random() * 0.3 - 0.15;
+                    leaf.castShadow = true;
+                    plantGroup.add(leaf);
+                }
+                
+                return plantGroup;
+            }
+            
+            createNaturalRocks() {
+                // Create more natural rock formations
+                for (let i = 0; i < 4; i++) {
+                    const rock = this.createNaturalRock();
+                    rock.position.set(
+                        (Math.random() - 0.5) * 16,
+                        -3.5,
+                        (Math.random() - 0.5) * 10
+                    );
+                    rock.rotation.y = Math.random() * Math.PI * 2;
+                    this.scene.add(rock);
+                }
+            }
+            
+            createNaturalRock() {
+                // Create irregular rock shape using multiple spheres
+                const rockGroup = new THREE.Group();
+                const rockColor = new THREE.Color().setHSL(0.1, 0.3, 0.3 + Math.random() * 0.2);
+                
+                const rockMaterial = new THREE.MeshStandardMaterial({
+                    color: rockColor,
+                    roughness: 0.9,
+                    metalness: 0.1,
+                    bumpScale: 0.3
+                });
+                
+                // Main rock body
+                const mainSize = 1 + Math.random() * 1.5;
+                const mainGeometry = new THREE.SphereGeometry(mainSize, 8, 6);
+                const mainRock = new THREE.Mesh(mainGeometry, rockMaterial);
+                mainRock.scale.set(1, 0.6 + Math.random() * 0.4, 0.8 + Math.random() * 0.4);
+                mainRock.castShadow = true;
+                rockGroup.add(mainRock);
+                
+                // Add smaller rock details
+                for (let i = 0; i < 3; i++) {
+                    const detailSize = 0.3 + Math.random() * 0.5;
+                    const detailGeometry = new THREE.SphereGeometry(detailSize, 6, 4);
+                    const detailRock = new THREE.Mesh(detailGeometry, rockMaterial);
+                    detailRock.position.set(
+                        (Math.random() - 0.5) * mainSize,
+                        Math.random() * mainSize * 0.5,
+                        (Math.random() - 0.5) * mainSize
+                    );
+                    detailRock.castShadow = true;
+                    rockGroup.add(detailRock);
+                }
+                
+                return rockGroup;
+            }
+            
+            createDriftwood() {
+                // Create natural driftwood pieces
+                for (let i = 0; i < 2; i++) {
+                    const driftwood = this.createDriftwoodPiece();
+                    driftwood.position.set(
+                        (Math.random() - 0.5) * 12,
+                        -3.3,
+                        (Math.random() - 0.5) * 8
+                    );
+                    driftwood.rotation.set(
+                        Math.random() * 0.3,
+                        Math.random() * Math.PI * 2,
+                        Math.random() * 0.3
+                    );
+                    this.scene.add(driftwood);
+                }
+            }
+            
+            createDriftwoodPiece() {
+                const driftwoodGroup = new THREE.Group();
+                
+                // Create wood texture
+                const woodColor = new THREE.Color(0x4A4A4A);
+                const woodMaterial = new THREE.MeshStandardMaterial({
+                    color: woodColor,
+                    roughness: 0.8,
+                    metalness: 0.0
+                });
+                
+                // Main trunk
+                const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 4, 8);
+                const trunk = new THREE.Mesh(trunkGeometry, woodMaterial);
+                trunk.rotation.z = Math.PI / 2;
+                trunk.position.x = 1;
+                trunk.castShadow = true;
+                driftwoodGroup.add(trunk);
+                
+                // Add branches
+                for (let i = 0; i < 3; i++) {
+                    const branchLength = 1 + Math.random() * 2;
+                    const branchGeometry = new THREE.CylinderGeometry(0.1, 0.2, branchLength, 6);
+                    const branch = new THREE.Mesh(branchGeometry, woodMaterial);
+                    branch.position.set(
+                        Math.random() * 2,
+                        Math.random() * 2 - 1,
+                        Math.random() * 1 - 0.5
+                    );
+                    branch.rotation.set(
+                        Math.random() * Math.PI,
+                        Math.random() * Math.PI,
+                        Math.random() * Math.PI
+                    );
+                    branch.castShadow = true;
+                    driftwoodGroup.add(branch);
+                }
+                
+                return driftwoodGroup;
             }
             
             createWaterEffects() {
