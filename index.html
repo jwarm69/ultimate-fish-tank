@@ -285,6 +285,15 @@
                 this.raycaster = new THREE.Raycaster();
                 this.mouseWorldPosition = new THREE.Vector3();
                 
+                // Tank stats tracking
+                this.tankStats = {
+                    cleanliness: 90,
+                    temperature: 24,
+                    lastCleaningUpdate: Date.now(),
+                    lastTempUpdate: Date.now(),
+                    dirtParticles: []
+                };
+                
                 this.init();
             }
             
@@ -362,11 +371,21 @@
                 this.camera.lookAt(0, 4, 0);
                 
                 // Use WebGL if available, fallback to Canvas
-                const rendererOptions = { antialias: this.hasWebGL };
+                const rendererOptions = { 
+                    antialias: true,
+                    powerPreference: "high-performance",
+                    alpha: false
+                };
                 if (this.hasWebGL) {
                     this.renderer = new THREE.WebGLRenderer(rendererOptions);
                     this.renderer.shadowMap.enabled = true;
                     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                    
+                    // Enhanced rendering settings for crisp fish visibility
+                    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Crisp rendering on high-DPI displays
+                    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+                    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                    this.renderer.toneMappingExposure = 1.2; // Slightly brighter for better fish visibility
                 } else {
                     console.warn('⚠️ WebGL not available, using Canvas renderer');
                     this.renderer = new THREE.CanvasRenderer();
@@ -649,9 +668,9 @@
                     color: 0xffffff,
                     metalness: 0.0,
                     roughness: 0.01,
-                    transmission: 0.98,
+                    transmission: 0.4,  // Reduced from 0.98 to 0.4 for better fish visibility
                     transparent: true,
-                    opacity: 0.1,
+                    opacity: 0.25,      // Increased from 0.1 to 0.25 for better edge definition
                     thickness: 0.05,
                     envMapIntensity: 0.5,
                     clearcoat: 0.8,
@@ -745,8 +764,8 @@
                 const waterMaterial = new THREE.MeshPhysicalMaterial({
                     color: 0x1E90FF,
                     transparent: true,
-                    opacity: 0.6,
-                    transmission: 0.8,
+                    opacity: 0.7,       // Increased from 0.6 to 0.7 for better fish contrast
+                    transmission: 0.3,   // Reduced from 0.8 to 0.3 for better fish visibility
                     thickness: 10,
                     roughness: 0.1,
                     metalness: 0.0,
@@ -804,9 +823,9 @@
                 const underwaterAmbient = new THREE.AmbientLight(0x6699DD, 0.8); // Brighter ambient light
                 this.scene.add(underwaterAmbient);
                 
-                // Top LED strip lighting (multiple lights for realism)
+                // Enhanced LED strip lighting for better fish visibility
                 for (let i = 0; i < 5; i++) {
-                    const ledLight = new THREE.DirectionalLight(0xffffff, 0.6); // Brighter LED lights
+                    const ledLight = new THREE.DirectionalLight(0xffffff, 0.8); // Increased from 0.6 to 0.8 for better fish illumination
                     ledLight.position.set(
                         (i - 2) * 4,
                         12,
@@ -814,8 +833,10 @@
                     );
                     ledLight.target.position.set(0, 4, 0);
                     ledLight.castShadow = true;
-                    ledLight.shadow.mapSize.width = 1024;
-                    ledLight.shadow.mapSize.height = 1024;
+                    ledLight.shadow.mapSize.width = 2048;  // Increased from 1024 to 2048 for sharper shadows
+                    ledLight.shadow.mapSize.height = 2048; // Increased from 1024 to 2048 for sharper shadows
+                    ledLight.shadow.camera.near = 0.1;
+                    ledLight.shadow.camera.far = 50;
                     this.scene.add(ledLight);
                     this.scene.add(ledLight.target);
                 }
@@ -830,10 +851,23 @@
                 rimLight.position.set(15, 8, 10);
                 this.scene.add(rimLight);
                 
-                // Internal tank lighting for fish visibility
-                const tankLight = new THREE.PointLight(0xffffff, 1.0, 30);
+                // Enhanced internal tank lighting for maximum fish visibility
+                const tankLight = new THREE.PointLight(0xffffff, 1.2, 35); // Increased intensity from 1.0 to 1.2 and range from 30 to 35
                 tankLight.position.set(0, 4, 0);
                 this.scene.add(tankLight);
+                
+                // Additional focused spotlights for swimming areas
+                const leftSpotlight = new THREE.SpotLight(0xffffff, 0.6, 25, Math.PI / 6, 0.1, 1);
+                leftSpotlight.position.set(-6, 8, 0);
+                leftSpotlight.target.position.set(-3, 4, 0);
+                this.scene.add(leftSpotlight);
+                this.scene.add(leftSpotlight.target);
+                
+                const rightSpotlight = new THREE.SpotLight(0xffffff, 0.6, 25, Math.PI / 6, 0.1, 1);
+                rightSpotlight.position.set(6, 8, 0);
+                rightSpotlight.target.position.set(3, 4, 0);
+                this.scene.add(rightSpotlight);
+                this.scene.add(rightSpotlight.target);
             }
             
             createDecorations() {
@@ -1326,13 +1360,13 @@
                 // Create realistic fish body
                 const bodyGeometry = this.createRealisticFishBody(config);
                 
-                // Advanced fish material with scale-like appearance
+                // Advanced fish material with enhanced visibility
                 const bodyMaterial = new THREE.MeshStandardMaterial({ 
                     color: config.bodyColor,
-                    metalness: config.iridescent ? 0.7 : 0.2,
-                    roughness: config.iridescent ? 0.1 : 0.4,
-                    emissive: new THREE.Color(config.bodyColor).multiplyScalar(0.05),
-                    envMapIntensity: config.iridescent ? 1.5 : 0.5
+                    metalness: config.iridescent ? 0.15 : 0.05,
+                    roughness: config.iridescent ? 0.6 : 0.7,
+                    emissive: new THREE.Color(config.bodyColor).multiplyScalar(0.03), // Increased from 0.01 to 0.03 for better visibility
+                    envMapIntensity: config.iridescent ? 0.3 : 0.1
                 });
                 
                 // Temporarily disable translucency for better visibility
@@ -1349,14 +1383,14 @@
                 const eyeGeometry = new THREE.SphereGeometry(0.18, 12, 8);
                 const eyeMaterial = new THREE.MeshStandardMaterial({ 
                     color: 0xffffff,
-                    metalness: 0.9,
-                    roughness: 0.1,
-                    envMapIntensity: 2.0
+                    metalness: 0.1,
+                    roughness: 0.4,
+                    envMapIntensity: 0.4
                 });
                 const pupilMaterial = new THREE.MeshStandardMaterial({ 
                     color: 0x000022,
-                    metalness: 0.8,
-                    roughness: 0.2
+                    metalness: 0.05,
+                    roughness: 0.8
                 });
                 
                 // Left eye with better positioning
@@ -1637,13 +1671,70 @@
             
             feedFish() {
                 if (this.fish.length > 0) {
-                    this.addMessage('🍽️ Fed your fish!');
-                    this.createFoodParticles(this.fish[0].position);
+                    let totalFed = 0;
+                    let veryHungryFish = 0;
+                    
+                    // Feed all fish and track hunger levels
+                    this.fish.forEach(fish => {
+                        const wasHungry = fish.userData.hunger < 50;
+                        const oldHunger = fish.userData.hunger;
+                        
+                        // Increase hunger by 25-35 points based on current hunger level
+                        const feedAmount = fish.userData.hunger < 30 ? 35 : 25;
+                        fish.userData.hunger = Math.min(100, fish.userData.hunger + feedAmount);
+                        
+                        if (wasHungry) veryHungryFish++;
+                        totalFed++;
+                        
+                        // Update last fed time
+                        fish.userData.lastFed = Date.now();
+                        
+                        // Create food particles near each fish
+                        this.createFoodParticles(fish.position);
+                    });
+                    
+                    // Give contextual feedback based on fish hunger levels
+                    if (veryHungryFish > 0) {
+                        this.addMessage(`🍽️ Fed ${totalFed} fish! ${veryHungryFish} were very hungry!`);
+                    } else {
+                        this.addMessage(`🍽️ Fed ${totalFed} happy fish!`);
+                    }
                 }
             }
             
             cleanTank() {
-                this.addMessage('🧽 Tank cleaned!');
+                // Restore cleanliness to full
+                const oldCleanliness = this.tankStats.cleanliness;
+                this.tankStats.cleanliness = 100;
+                this.tankStats.lastCleaningUpdate = Date.now();
+                
+                // Remove all dirt particles from scene
+                this.tankStats.dirtParticles.forEach(particle => {
+                    this.scene.remove(particle);
+                });
+                this.tankStats.dirtParticles = [];
+                
+                // Update UI
+                document.getElementById('cleanliness').textContent = `${this.tankStats.cleanliness}%`;
+                
+                // Give feedback based on how dirty it was
+                if (oldCleanliness < 30) {
+                    this.addMessage('🧽 Tank was really dirty! Now sparkling clean!');
+                } else if (oldCleanliness < 60) {
+                    this.addMessage('🧽 Tank cleaned! Much better!');
+                } else {
+                    this.addMessage('🧽 Tank cleaned! Looking fresh!');
+                }
+                
+                // Create cleaning effect particles
+                this.createCleaningParticles();
+                
+                // Increase fish happiness due to clean environment
+                this.fish.forEach(fish => {
+                    if (fish.userData.happiness) {
+                        fish.userData.happiness = Math.min(100, fish.userData.happiness + 5);
+                    }
+                });
             }
             
             addFish() {
@@ -1788,6 +1879,280 @@
                     };
                     setTimeout(() => animate(), i * 100);
                 }
+            }
+            
+            createCleaningParticles() {
+                for (let i = 0; i < 25; i++) {
+                    const bubble = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.08 + Math.random() * 0.04),
+                        new THREE.MeshBasicMaterial({ 
+                            color: 0x87ceeb,
+                            transparent: true,
+                            opacity: 0.6
+                        })
+                    );
+                    
+                    bubble.position.set(
+                        (Math.random() - 0.5) * 8,
+                        Math.random() * 6 + 1,
+                        (Math.random() - 0.5) * 4
+                    );
+                    
+                    this.scene.add(bubble);
+                    
+                    // Animate bubbles floating up
+                    let opacity = 0.6;
+                    const animate = () => {
+                        bubble.position.y += 0.05;
+                        bubble.rotation.x += 0.02;
+                        bubble.rotation.y += 0.03;
+                        opacity -= 0.01;
+                        bubble.material.opacity = opacity;
+                        
+                        if (opacity > 0 && bubble.position.y < 8) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            this.scene.remove(bubble);
+                        }
+                    };
+                    setTimeout(() => animate(), i * 25);
+                }
+            }
+            
+            createDirtParticle() {
+                const particle = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.02 + Math.random() * 0.02),
+                    new THREE.MeshBasicMaterial({ 
+                        color: new THREE.Color().setHSL(0.1, 0.3, 0.2 + Math.random() * 0.2),
+                        transparent: true,
+                        opacity: 0.4 + Math.random() * 0.3
+                    })
+                );
+                
+                // Random position within tank bounds
+                particle.position.set(
+                    (Math.random() - 0.5) * 7,
+                    1 + Math.random() * 5,
+                    (Math.random() - 0.5) * 3.5
+                );
+                
+                // Add gentle floating motion
+                particle.userData = {
+                    driftSpeed: 0.001 + Math.random() * 0.002,
+                    driftDirection: new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.5,
+                        -0.1 - Math.random() * 0.1,
+                        (Math.random() - 0.5) * 0.5
+                    ).normalize()
+                };
+                
+                this.scene.add(particle);
+                this.tankStats.dirtParticles.push(particle);
+                
+                return particle;
+            }
+            
+            createSparkleEffect(position) {
+                for (let i = 0; i < 12; i++) {
+                    const sparkle = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.03),
+                        new THREE.MeshBasicMaterial({ 
+                            color: new THREE.Color().setHSL(Math.random(), 0.8, 0.8),
+                            transparent: true,
+                            opacity: 0.9
+                        })
+                    );
+                    
+                    sparkle.position.copy(position);
+                    sparkle.position.add(new THREE.Vector3(
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2
+                    ));
+                    
+                    this.scene.add(sparkle);
+                    
+                    // Sparkle animation
+                    let opacity = 0.9;
+                    let scale = 0.1;
+                    const animate = () => {
+                        sparkle.scale.setScalar(scale);
+                        sparkle.material.opacity = opacity;
+                        sparkle.rotation.x += 0.1;
+                        sparkle.rotation.y += 0.1;
+                        
+                        scale += 0.05;
+                        opacity -= 0.03;
+                        
+                        if (opacity > 0) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            this.scene.remove(sparkle);
+                        }
+                    };
+                    setTimeout(() => animate(), i * 30);
+                }
+            }
+            
+            createPlayfulSpinEffect(fish) {
+                const originalSpeed = fish.userData.speed;
+                fish.userData.speed *= 0.3; // Slow down while spinning
+                
+                let spinCount = 0;
+                const spinInterval = setInterval(() => {
+                    fish.rotation.z += Math.PI / 4; // Quarter turn each time
+                    spinCount++;
+                    
+                    if (spinCount >= 8) { // Two full rotations
+                        clearInterval(spinInterval);
+                        fish.userData.speed = originalSpeed;
+                        fish.rotation.z = 0; // Reset rotation
+                    }
+                }, 200);
+            }
+            
+            createElegantDanceEffect(fish) {
+                const originalPosition = fish.position.clone();
+                const danceRadius = 1.5;
+                let angle = 0;
+                let danceTime = 0;
+                
+                const danceInterval = setInterval(() => {
+                    angle += 0.2;
+                    danceTime += 50;
+                    
+                    // Graceful figure-8 pattern
+                    const x = originalPosition.x + Math.sin(angle) * danceRadius;
+                    const y = originalPosition.y + Math.sin(angle * 2) * 0.5;
+                    const z = originalPosition.z + Math.cos(angle) * danceRadius * 0.5;
+                    
+                    fish.position.set(x, y, z);
+                    fish.lookAt(fish.position.x + Math.cos(angle), fish.position.y, fish.position.z + Math.sin(angle));
+                    
+                    if (danceTime >= 3000) { // 3 second dance
+                        clearInterval(danceInterval);
+                        fish.userData.seekingPlayer = false; // Return to normal behavior
+                    }
+                }, 50);
+            }
+            
+            createWisdomAura(fish) {
+                for (let i = 0; i < 20; i++) {
+                    const wisdom = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.05),
+                        new THREE.MeshBasicMaterial({ 
+                            color: 0xffd700, // Golden color
+                            transparent: true,
+                            opacity: 0.6
+                        })
+                    );
+                    
+                    const radius = 2;
+                    const angle = (i / 20) * Math.PI * 2;
+                    
+                    wisdom.position.set(
+                        fish.position.x + Math.cos(angle) * radius,
+                        fish.position.y + Math.sin(i * 0.5) * 0.5,
+                        fish.position.z + Math.sin(angle) * radius
+                    );
+                    
+                    this.scene.add(wisdom);
+                    
+                    // Slowly rotating aura
+                    let life = 180; // 3 seconds at 60fps
+                    const animate = () => {
+                        const newAngle = angle + (180 - life) * 0.02;
+                        wisdom.position.set(
+                            fish.position.x + Math.cos(newAngle) * radius,
+                            fish.position.y + Math.sin((180 - life) * 0.1) * 0.5,
+                            fish.position.z + Math.sin(newAngle) * radius
+                        );
+                        
+                        wisdom.material.opacity = life / 180 * 0.6;
+                        life--;
+                        
+                        if (life > 0) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            this.scene.remove(wisdom);
+                        }
+                    };
+                    setTimeout(() => animate(), i * 20);
+                }
+            }
+            
+            updateTankStats() {
+                const now = Date.now();
+                const timeSinceLastUpdate = now - this.tankStats.lastCleaningUpdate;
+                
+                // Cleanliness decreases over time (about 1 point per 30 seconds)
+                if (timeSinceLastUpdate > 30000) { // Update every 30 seconds
+                    const cleanlinessDecayRate = 1;
+                    this.tankStats.cleanliness = Math.max(0, this.tankStats.cleanliness - cleanlinessDecayRate);
+                    this.tankStats.lastCleaningUpdate = now;
+                    
+                    // Update UI
+                    document.getElementById('cleanliness').textContent = `${this.tankStats.cleanliness}%`;
+                    
+                    // Add dirt particles based on cleanliness level
+                    if (this.tankStats.cleanliness < 80 && this.tankStats.dirtParticles.length < 50) {
+                        // More dirt particles for dirtier tanks
+                        const particlesToAdd = Math.floor((80 - this.tankStats.cleanliness) / 20) + 1;
+                        for (let i = 0; i < particlesToAdd; i++) {
+                            if (this.tankStats.dirtParticles.length < 50) {
+                                this.createDirtParticle();
+                            }
+                        }
+                    }
+                    
+                    // Affect fish health and happiness based on cleanliness
+                    if (this.tankStats.cleanliness < 50) {
+                        this.fish.forEach(fish => {
+                            if (fish.userData.health) {
+                                fish.userData.health = Math.max(0, fish.userData.health - 0.5);
+                            }
+                            if (fish.userData.happiness) {
+                                fish.userData.happiness = Math.max(0, fish.userData.happiness - 1);
+                            }
+                        });
+                    }
+                }
+                
+                // Small temperature fluctuation for realism
+                if (now - this.tankStats.lastTempUpdate > 60000) { // Update every minute
+                    const tempChange = (Math.random() - 0.5) * 0.5;
+                    this.tankStats.temperature = Math.max(22, Math.min(26, this.tankStats.temperature + tempChange));
+                    document.getElementById('temperature').textContent = `${this.tankStats.temperature.toFixed(1)}°C`;
+                    this.tankStats.lastTempUpdate = now;
+                }
+            }
+            
+            updateDirtParticles() {
+                this.tankStats.dirtParticles.forEach(particle => {
+                    if (particle.userData) {
+                        // Gentle drifting motion
+                        particle.position.add(particle.userData.driftDirection.clone().multiplyScalar(particle.userData.driftSpeed));
+                        
+                        // Slight rotation
+                        particle.rotation.x += 0.002;
+                        particle.rotation.y += 0.001;
+                        
+                        // Keep particles within tank bounds
+                        if (particle.position.y < 1) {
+                            particle.position.y = 1;
+                            particle.userData.driftDirection.y = Math.abs(particle.userData.driftDirection.y);
+                        }
+                        if (particle.position.y > 6) {
+                            particle.userData.driftDirection.y = -Math.abs(particle.userData.driftDirection.y);
+                        }
+                        if (Math.abs(particle.position.x) > 3.5) {
+                            particle.userData.driftDirection.x *= -1;
+                        }
+                        if (Math.abs(particle.position.z) > 1.75) {
+                            particle.userData.driftDirection.z *= -1;
+                        }
+                    }
+                });
             }
             
             updateWaterEffects() {
@@ -2042,6 +2407,24 @@
                             userData.seekingPlayer = false;
                         }
                     }
+                    
+                    // Add hunger degradation over time
+                    if (!userData.lastHungerUpdate) {
+                        userData.lastHungerUpdate = Date.now();
+                    }
+                    
+                    const now = Date.now();
+                    const timeSinceLastUpdate = now - userData.lastHungerUpdate;
+                    
+                    // Hunger decreases slowly over time (about 2 points per minute)
+                    if (timeSinceLastUpdate > 1000) { // Update every second
+                        const hungerDecayRate = 0.033; // ~2 points per minute
+                        userData.hunger = Math.max(0, userData.hunger - hungerDecayRate);
+                        userData.lastHungerUpdate = now;
+                    }
+                    
+                    // Update tank cleanliness degradation and add dirt particles
+                    this.updateTankStats();
                     
                     // Update mood particles and auras
                     this.updateFishMoodEffects(fish, userData);
@@ -2312,6 +2695,7 @@
                 
                 this.updateFish();
                 this.updateWaterEffects();
+                this.updateDirtParticles();
                 this.renderer.render(this.scene, this.camera);
             }
             
@@ -2433,24 +2817,140 @@
             }
             
             interactWithFish(fish) {
-                // Beautiful interaction feedback
-                this.addMessage(`🐠 You petted ${fish.userData.species}!`);
+                const userData = fish.userData;
+                const personality = userData.personality;
                 
-                // Add happiness and visual feedback
-                if (!fish.userData.happiness) fish.userData.happiness = 80;
-                fish.userData.happiness = Math.min(100, fish.userData.happiness + 10);
+                // Initialize happiness if not present
+                if (!userData.happiness) userData.happiness = 80;
+                if (!userData.lastPetted) userData.lastPetted = 0;
+                if (!userData.consecutivePets) userData.consecutivePets = 0;
                 
-                // Create heart particles
-                this.createHeartParticles(fish.position);
+                const now = Date.now();
+                const timeSinceLastPet = now - userData.lastPetted;
                 
-                // Make fish swim toward player briefly
-                if (!fish.userData.hasPhysics) {
-                    fish.userData.seekingPlayer = true;
-                    fish.userData.seekTarget = this.mouseWorldPosition.clone();
-                    setTimeout(() => {
-                        fish.userData.seekingPlayer = false;
-                    }, 2000);
+                // Track consecutive petting for different responses
+                if (timeSinceLastPet < 5000) { // Within 5 seconds
+                    userData.consecutivePets++;
+                } else {
+                    userData.consecutivePets = 1;
                 }
+                userData.lastPetted = now;
+                
+                // Personality-based happiness gain and responses
+                let happinessGain = 10;
+                let message = `🐠 You petted ${userData.species}!`;
+                
+                switch (personality) {
+                    case 'playful':
+                        happinessGain = 15;
+                        if (userData.consecutivePets > 3) {
+                            message = `🎾 ${userData.species} loves the attention! They're doing happy spins!`;
+                            this.createPlayfulSpinEffect(fish);
+                        } else {
+                            message = `🎾 Playful ${userData.species} wiggles with joy!`;
+                        }
+                        break;
+                        
+                    case 'shy':
+                        happinessGain = 8;
+                        if (userData.consecutivePets === 1) {
+                            message = `😊 Shy ${userData.species} cautiously enjoys the attention`;
+                        } else if (userData.consecutivePets > 2) {
+                            message = `🥰 ${userData.species} is warming up to you!`;
+                            happinessGain = 12;
+                        }
+                        break;
+                        
+                    case 'energetic':
+                        happinessGain = 12;
+                        message = `⚡ Energetic ${userData.species} zooms around happily!`;
+                        userData.speed *= 1.5;
+                        setTimeout(() => userData.speed /= 1.5, 3000);
+                        break;
+                        
+                    case 'elegant':
+                        happinessGain = 10;
+                        message = `✨ Elegant ${userData.species} gracefully acknowledges your touch`;
+                        if (userData.consecutivePets > 2) {
+                            message = `👑 ${userData.species} performs a beautiful dance for you!`;
+                            this.createElegantDanceEffect(fish);
+                        }
+                        break;
+                        
+                    case 'aggressive':
+                        if (userData.consecutivePets === 1) {
+                            happinessGain = 5;
+                            message = `😤 ${userData.species} tolerates your touch... barely`;
+                        } else if (userData.consecutivePets > 3) {
+                            happinessGain = 15;
+                            message = `😍 Wow! ${userData.species} actually likes you now!`;
+                        } else {
+                            happinessGain = 8;
+                            message = `🤔 ${userData.species} is starting to trust you`;
+                        }
+                        break;
+                        
+                    case 'wise':
+                        happinessGain = 11;
+                        message = `🧙 Wise ${userData.species} appreciates your gentle touch`;
+                        if (userData.consecutivePets > 4) {
+                            message = `🌟 ${userData.species} shares ancient fish wisdom with you!`;
+                            this.createWisdomAura(fish);
+                        }
+                        break;
+                        
+                    case 'curious':
+                        happinessGain = 13;
+                        message = `🔍 Curious ${userData.species} investigates your hand!`;
+                        if (userData.consecutivePets > 2) {
+                            message = `🎯 ${userData.species} playfully nibbles your finger!`;
+                        }
+                        break;
+                        
+                    default:
+                        happinessGain = 10;
+                        message = `🐠 You petted ${userData.species}!`;
+                }
+                
+                // Diminishing returns for over-petting
+                if (userData.consecutivePets > 5) {
+                    happinessGain = Math.max(2, happinessGain / 2);
+                    message = `😴 ${userData.species} is getting tired of being petted`;
+                }
+                
+                // Apply happiness gain
+                userData.happiness = Math.min(100, userData.happiness + happinessGain);
+                
+                // Display message
+                this.addMessage(message);
+                
+                // Create appropriate visual effects
+                if (userData.consecutivePets <= 5) {
+                    this.createHeartParticles(fish.position);
+                    
+                    // Additional personality-based effects
+                    if (personality === 'energetic' || (personality === 'playful' && userData.consecutivePets > 2)) {
+                        this.createSparkleEffect(fish.position);
+                    }
+                }
+                
+                // Enhanced fish response behavior
+                if (!userData.hasPhysics) {
+                    userData.seekingPlayer = true;
+                    userData.seekTarget = this.mouseWorldPosition.clone();
+                    
+                    // Personality affects how long they follow
+                    const followDuration = personality === 'shy' ? 1000 : 
+                                          personality === 'playful' ? 4000 : 
+                                          personality === 'aggressive' ? 500 : 2000;
+                    
+                    setTimeout(() => {
+                        userData.seekingPlayer = false;
+                    }, followDuration);
+                }
+                
+                // Update last petting interaction
+                userData.lastInteraction = now;
             }
             
             applyPersonalityBehavior(fish, userData) {
