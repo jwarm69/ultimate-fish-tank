@@ -82,15 +82,15 @@ export class UISystem implements Component {
     const infoBtn = document.getElementById('info-btn');
 
     feedBtn?.addEventListener('click', () => {
-      this.events.emit('feedButton');
+      this.events.emit('feedFish');
     });
 
     cleanBtn?.addEventListener('click', () => {
-      this.events.emit('cleanButton');
+      this.events.emit('cleanTank');
     });
 
     addFishBtn?.addEventListener('click', () => {
-      this.events.emit('addFishButton');
+      this.events.emit('addFish');
     });
 
     infoBtn?.addEventListener('click', () => {

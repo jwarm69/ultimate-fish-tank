@@ -22,6 +22,7 @@ export class EnvironmentSystem implements Component {
   }
 
   async init(): Promise<void> {
+    this.createRoomEnvironment();
     this.createTank();
     this.createLighting();
     this.createBackground();
@@ -31,10 +32,183 @@ export class EnvironmentSystem implements Component {
     }
   }
 
+  private createRoomEnvironment(): void {
+    console.log('🏠 Creating room environment...');
+    
+    this.createRoomStructure();
+    this.createTankStand();
+    
+    console.log('✅ Room environment created');
+  }
+
+  private createRoomStructure(): void {
+    // Wood floor with realistic texture
+    const floorGeometry = new THREE.PlaneGeometry(80, 80);
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x8B4513, // Saddle brown
+      roughness: 0.8,
+      metalness: 0.1
+    });
+    
+    // Create wood grain pattern procedurally
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Base wood color
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Wood grain lines
+    ctx.strokeStyle = '#654321';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 20; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, i * 25 + Math.random() * 10);
+      ctx.lineTo(512, i * 25 + Math.random() * 10);
+      ctx.stroke();
+    }
+    
+    // Create texture from canvas
+    const woodTexture = new THREE.CanvasTexture(canvas);
+    woodTexture.wrapS = THREE.RepeatWrapping;
+    woodTexture.wrapT = THREE.RepeatWrapping;
+    woodTexture.repeat.set(8, 8);
+    
+    floorMaterial.map = woodTexture;
+    
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -12;
+    floor.receiveShadow = true;
+    this.scene.add(floor);
+    this.backgroundElements.push(floor);
+    
+    // Room walls with calming aquarium room colors
+    const wallMaterial = new THREE.MeshStandardMaterial({
+      color: 0xE6F3FF, // Light aqua blue - calming for aquarium environment
+      roughness: 0.8,
+      metalness: 0.0
+    });
+    
+    // Back wall
+    const backWallGeometry = new THREE.PlaneGeometry(80, 40);
+    const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+    backWall.position.set(0, 8, -35);
+    backWall.receiveShadow = true;
+    this.scene.add(backWall);
+    this.backgroundElements.push(backWall);
+    
+    // Side walls
+    const leftWall = new THREE.Mesh(backWallGeometry, wallMaterial.clone());
+    leftWall.position.set(-35, 8, 0);
+    leftWall.rotation.y = Math.PI / 2;
+    leftWall.receiveShadow = true;
+    this.scene.add(leftWall);
+    this.backgroundElements.push(leftWall);
+    
+    const rightWall = new THREE.Mesh(backWallGeometry, wallMaterial.clone());
+    rightWall.position.set(35, 8, 0);
+    rightWall.rotation.y = -Math.PI / 2;
+    rightWall.receiveShadow = true;
+    this.scene.add(rightWall);
+    this.backgroundElements.push(rightWall);
+    
+    // Ceiling
+    const ceilingGeometry = new THREE.PlaneGeometry(80, 80);
+    const ceilingMaterial = new THREE.MeshStandardMaterial({
+      color: 0xF0F8FF, // Alice blue - subtle ceiling color
+      roughness: 0.8
+    });
+    
+    const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = 28;
+    this.scene.add(ceiling);
+    this.backgroundElements.push(ceiling);
+  }
+
+  private createTankStand(): void {
+    // Wooden tank stand/cabinet
+    const standWidth = 28;
+    const standHeight = 8;
+    const standDepth = 20;
+    
+    const standMaterial = new THREE.MeshStandardMaterial({
+      color: 0x8B4513, // Matching wood color
+      roughness: 0.6,
+      metalness: 0.1
+    });
+    
+    // Main cabinet body
+    const standGeometry = new THREE.BoxGeometry(standWidth, standHeight, standDepth);
+    const stand = new THREE.Mesh(standGeometry, standMaterial);
+    stand.position.set(0, -12 + standHeight/2, 0);
+    stand.castShadow = true;
+    stand.receiveShadow = true;
+    this.scene.add(stand);
+    this.backgroundElements.push(stand);
+    
+    // Cabinet legs
+    const legGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2);
+    const legPositions = [
+      [-standWidth/2 + 2, -12 - 1, -standDepth/2 + 2],
+      [standWidth/2 - 2, -12 - 1, -standDepth/2 + 2],
+      [-standWidth/2 + 2, -12 - 1, standDepth/2 - 2],
+      [standWidth/2 - 2, -12 - 1, standDepth/2 - 2]
+    ];
+    
+    legPositions.forEach(pos => {
+      const leg = new THREE.Mesh(legGeometry, standMaterial.clone());
+      leg.position.set(pos[0], pos[1], pos[2]);
+      leg.castShadow = true;
+      this.scene.add(leg);
+      this.backgroundElements.push(leg);
+    });
+    
+    // Cabinet doors (decorative)
+    const doorGeometry = new THREE.BoxGeometry(11, 6, 0.5);
+    const doorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x654321, // Darker wood
+      roughness: 0.7
+    });
+    
+    const leftDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+    leftDoor.position.set(-6.5, -6, standDepth/2 + 0.3);
+    this.scene.add(leftDoor);
+    this.backgroundElements.push(leftDoor);
+    
+    const rightDoor = new THREE.Mesh(doorGeometry, doorMaterial.clone());
+    rightDoor.position.set(6.5, -6, standDepth/2 + 0.3);
+    this.scene.add(rightDoor);
+    this.backgroundElements.push(rightDoor);
+    
+    // Door handles
+    const handleGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.8);
+    const handleMaterial = new THREE.MeshStandardMaterial({
+      color: 0xFFD700, // Gold
+      metalness: 0.8,
+      roughness: 0.2
+    });
+    
+    const leftHandle = new THREE.Mesh(handleGeometry, handleMaterial);
+    leftHandle.position.set(-2, -6, standDepth/2 + 0.8);
+    leftHandle.rotation.z = Math.PI / 2;
+    this.scene.add(leftHandle);
+    this.backgroundElements.push(leftHandle);
+    
+    const rightHandle = new THREE.Mesh(handleGeometry, handleMaterial.clone());
+    rightHandle.position.set(2, -6, standDepth/2 + 0.8);
+    rightHandle.rotation.z = Math.PI / 2;
+    this.scene.add(rightHandle);
+    this.backgroundElements.push(rightHandle);
+  }
+
   private createTank(): void {
     this.tank = new THREE.Group();
 
-    const tankSize = { width: 10, height: 6, depth: 6 };
+    const tankSize = { width: 20, height: 8, depth: 12 };
 
     // Glass panels
     const glassGeometry = new THREE.PlaneGeometry(tankSize.width, tankSize.height);
@@ -146,16 +320,17 @@ export class EnvironmentSystem implements Component {
     );
 
     const waterMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x006994,
+      color: 0x0088CC, // Beautiful aqua blue
       metalness: 0,
-      roughness: 0,
-      transmission: 0.3, // Reduced from 0.8 for clarity
+      roughness: 0.05,
+      transmission: 0.85, // Much more transparent
       transparent: true,
-      opacity: 0.8,
-      thickness: 2,
-      ior: 1.33,
-      clearcoat: 0.5,
-      clearcoatRoughness: 0.1,
+      opacity: 0.3, // Very transparent
+      thickness: 0.5,
+      ior: 1.33, // Water refractive index
+      clearcoat: 1,
+      clearcoatRoughness: 0.05,
+      envMapIntensity: 1.5,
     });
 
     const water = new THREE.Mesh(waterGeometry, waterMaterial);
@@ -192,10 +367,12 @@ export class EnvironmentSystem implements Component {
 
   private createPlants(tankSize: any): void {
     const plantPositions = [
-      [-3, -2.5, -2],
-      [3, -2.5, 2],
-      [-2, -2.5, 2.5],
-      [2.5, -2.5, -2.5],
+      [-6, -3, -4],
+      [6, -3, 4],
+      [-4, -3, 5],
+      [5, -3, -5],
+      [0, -3, -3],
+      [-7, -3, 0],
     ];
 
     plantPositions.forEach((pos, index) => {
@@ -244,9 +421,11 @@ export class EnvironmentSystem implements Component {
 
   private createRocks(tankSize: any): void {
     const rockPositions = [
-      [1, -2.7, 0],
-      [-1.5, -2.7, -1],
-      [0.5, -2.7, 2],
+      [2, -3.5, 0],
+      [-3, -3.5, -2],
+      [1, -3.5, 4],
+      [-5, -3.5, 3],
+      [4, -3.5, -3],
     ];
 
     rockPositions.forEach(pos => {
@@ -277,7 +456,7 @@ export class EnvironmentSystem implements Component {
     });
 
     const bubbler = new THREE.Mesh(bubblerGeometry, bubblerMaterial);
-    bubbler.position.set(2, -2.5, -1);
+    bubbler.position.set(4, -3.5, -2);
     this.tank.add(bubbler);
     this.backgroundElements.push(bubbler);
   }

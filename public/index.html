@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Fish Tank - Bulletproof</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="loading-content">
+            <div class="fish-loading">🐠</div>
+            <h2>Ultimate Fish Tank</h2>
+            <div class="loading-spinner"></div>
+            <div id="loading-progress">Initializing aquarium...</div>
+            <div class="loading-details">
+                <small>Loading 3D graphics and fish AI...</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container" style="display: none;">
+        <!-- 3D Canvas -->
+        <div id="canvas-container"></div>
+        
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <!-- Top Status Bar -->
+            <div id="status-bar">
+                <div class="status-section">
+                    <h3 id="tank-name">My Aquarium</h3>
+                    <div class="stats">
+                        <span class="stat">💰 <span id="aqua-coins">500</span></span>
+                        <span class="stat">⭐ Level <span id="player-level">1</span></span>
+                        <span class="stat" id="mode-indicator">🔧 Detecting...</span>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="tank-stats">
+                        <span class="stat">🌡️ <span id="temperature">24°C</span></span>
+                        <span class="stat">✨ Clean: <span id="cleanliness">90%</span></span>
+                        <span class="stat">🐠 Fish: <span id="fish-count">1</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Left Panel - Actions -->
+            <div id="left-panel" class="panel">
+                <div class="panel-header">
+                    <h3>🎮 Actions</h3>
+                </div>
+                <div class="action-buttons">
+                    <button id="feed-btn" class="action-btn">🍽️ Feed</button>
+                    <button id="clean-btn" class="action-btn">🧽 Clean</button>
+                    <button id="add-fish-btn" class="action-btn">🐠 Add Fish</button>
+                    <button id="info-btn" class="action-btn">ℹ️ Info</button>
+                </div>
+                <div id="capability-status" style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                    <small id="capabilities-text">Checking capabilities...</small>
+                </div>
+            </div>
+            
+            <!-- Right Panel - Fish Stats -->
+            <div id="right-panel" class="panel">
+                <div class="panel-header">
+                    <h3>🐠 Fish Info</h3>
+                </div>
+                <div id="fish-stats-content">
+                    <div id="no-fish-selected" class="fish-info-message">
+                        <p>👆 Click on a fish to see its stats!</p>
+                        <small>Each fish has unique personality and needs</small>
+                    </div>
+                    <div id="fish-details" style="display: none;">
+                        <div class="fish-header">
+                            <h4 id="fish-name">Fish Name</h4>
+                            <span id="fish-personality" class="personality-tag">Personality</span>
+                        </div>
+                        
+                        <div class="fish-stats">
+                            <div class="stat-bar">
+                                <label>❤️ Health</label>
+                                <div class="progress-bar">
+                                    <div id="health-fill" class="progress-fill health"></div>
+                                </div>
+                                <span id="health-value">100%</span>
+                            </div>
+                            
+                            <div class="stat-bar">
+                                <label>😊 Happiness</label>
+                                <div class="progress-bar">
+                                    <div id="happiness-fill" class="progress-fill happiness"></div>
+                                </div>
+                                <span id="happiness-value">80%</span>
+                            </div>
+                            
+                            <div class="stat-bar">
+                                <label>🍽️ Hunger</label>
+                                <div class="progress-bar">
+                                    <div id="hunger-fill" class="progress-fill hunger"></div>
+                                </div>
+                                <span id="hunger-value">75%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="fish-actions">
+                            <button id="feed-this-fish" class="small-btn">🍽️ Feed This Fish</button>
+                            <button id="pet-this-fish" class="small-btn">🤚 Pet This Fish</button>
+                        </div>
+                        
+                        <div class="fish-info">
+                            <p><strong>Last Fed:</strong> <span id="last-fed">Never</span></p>
+                            <p><strong>Last Petted:</strong> <span id="last-petted">Never</span></p>
+                            <p><strong>Age:</strong> <span id="fish-age">Young</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Panel - Messages -->
+            <div id="bottom-panel" class="panel">
+                <div id="message-log">
+                    <div class="message">🐠 Welcome to your ultimate digital aquarium!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -108,7 +108,7 @@ export class UltimateFishTank {
     this.camera.init();
 
     // Initialize physics (optional)
-    if (this.config.enablePhysics && this.capabilities.cannon) {
+    if (this.config.enablePhysics) {
       this.physics = new Physics();
       this.physics.init();
     }
@@ -248,8 +248,8 @@ export class UltimateFishTank {
 
   private detectCapabilities(): Capabilities {
     const capabilities: Capabilities = {
-      three: typeof window !== 'undefined' && 'THREE' in window,
-      cannon: typeof window !== 'undefined' && 'CANNON' in window,
+      three: true, // THREE.js is always available as ES module
+      cannon: true, // CANNON-ES is always available as ES module
       webgl: this.detectWebGL(),
     };
 

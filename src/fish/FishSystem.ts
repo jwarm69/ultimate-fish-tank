@@ -60,7 +60,12 @@ export class FishSystem implements Component {
       const clickedMesh = intersects[0].object;
       const clickedFish = this.fish.find(fish => {
         const mesh = fish.getMesh();
-        return mesh && (mesh === clickedMesh || mesh.children.includes(clickedMesh));
+        if (!mesh) return false;
+        
+        // Check if clicked object is the fish group itself or any of its children
+        return mesh === clickedMesh || 
+               mesh.children.includes(clickedMesh) ||
+               this.isChildOfFish(clickedMesh, mesh);
       });
 
       if (clickedFish) {
@@ -108,13 +113,13 @@ export class FishSystem implements Component {
     const randomPersonality = personalities[Math.floor(Math.random() * personalities.length)];
 
     const config: FishConfig = {
-      bodyColor: new THREE.Color().setHSL(Math.random(), 0.7, 0.6),
-      finColor: new THREE.Color().setHSL(Math.random(), 0.8, 0.7),
-      size: 0.8 + Math.random() * 0.4,
+      bodyColor: new THREE.Color().setHSL(Math.random(), 0.8 + Math.random() * 0.2, 0.5 + Math.random() * 0.3),
+      finColor: new THREE.Color().setHSL((Math.random() + 0.1) % 1, 0.9, 0.6 + Math.random() * 0.2),
+      size: 0.6 + Math.random() * 0.8, // Vary sizes more
       speed: 0.5 + Math.random() * 0.5,
       turnSpeed: 1 + Math.random() * 2,
-      iridescent: Math.random() > 0.7,
-      translucent: Math.random() > 0.8,
+      iridescent: Math.random() > 0.5, // More likely to be iridescent
+      translucent: Math.random() > 0.7,
     };
 
     return {
@@ -189,6 +194,17 @@ export class FishSystem implements Component {
 
   private findFishById(id: string): Fish | undefined {
     return this.fish.find(fish => fish.getId() === id);
+  }
+
+  private isChildOfFish(clickedMesh: THREE.Object3D, fishMesh: THREE.Group): boolean {
+    // Recursively check if clickedMesh is a descendant of fishMesh
+    for (const child of fishMesh.children) {
+      if (child === clickedMesh) return true;
+      if (child instanceof THREE.Group && this.isChildOfFish(clickedMesh, child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   update(deltaTime: number): void {

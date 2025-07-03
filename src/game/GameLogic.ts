@@ -55,16 +55,22 @@ export class GameLogic implements Component {
       this.handleTankCleaned();
     });
 
-    // UI events
-    this.events.on('feedButton', () => {
-      this.handleFeedButton();
-    });
-
-    this.events.on('cleanButton', () => {
+    this.events.on('cleanTank', () => {
       this.handleCleanButton();
     });
 
-    this.events.on('addFishButton', () => {
+    // UI events - handle both direct fish feeding and general feed button
+    this.events.on('feedFish', event => {
+      if (event.data?.fishId) {
+        // Specific fish feeding - already handled above
+        return;
+      } else {
+        // General feed button
+        this.handleFeedButton();
+      }
+    });
+
+    this.events.on('addFish', () => {
       this.handleAddFishButton();
     });
   }
