@@ -252,29 +252,169 @@ export class Fish implements Component {
   private updateBehavior(deltaTime: number): void {
     if (!this.body) return;
 
+    const position = this.mesh.position;
+    
+    // Tank boundaries (slightly smaller than actual tank for margin)
+    const tankBounds = {
+      minX: -9, maxX: 9,   // Tank width 20, leave 1 unit margin on each side
+      minY: -3.5, maxY: 3.5, // Tank height 8, leave margin
+      minZ: -5.5, maxZ: 5.5  // Tank depth 12, leave margin
+    };
+
     // Adjust speed based on health
     const healthMultiplier = Math.max(0.3, this.data.health / 100);
-    const currentSpeed = (this.data.originalSpeed || 1) * healthMultiplier;
+    let baseSpeed = (this.data.originalSpeed || 1) * healthMultiplier;
+    
+    // Personality-based movement modifications
+    const personalityMods = this.getPersonalityMovement();
+    baseSpeed *= personalityMods.speedMultiplier;
 
-    // Random direction changes
-    if (Math.random() < 0.02) {
-      this.behaviorState.direction = new THREE.Vector3(
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 0.5,
-        (Math.random() - 0.5) * 2
-      ).normalize();
+    // Boundary avoidance - create repulsion force when near walls
+    const avoidanceForce = new THREE.Vector3(0, 0, 0);
+    const avoidanceDistance = 2.0;
+    
+    if (position.x < tankBounds.minX + avoidanceDistance) {
+      avoidanceForce.x += (tankBounds.minX + avoidanceDistance - position.x) * 2;
+    }
+    if (position.x > tankBounds.maxX - avoidanceDistance) {
+      avoidanceForce.x -= (position.x - (tankBounds.maxX - avoidanceDistance)) * 2;
+    }
+    if (position.y < tankBounds.minY + avoidanceDistance) {
+      avoidanceForce.y += (tankBounds.minY + avoidanceDistance - position.y) * 2;
+    }
+    if (position.y > tankBounds.maxY - avoidanceDistance) {
+      avoidanceForce.y -= (position.y - (tankBounds.maxY - avoidanceDistance)) * 2;
+    }
+    if (position.z < tankBounds.minZ + avoidanceDistance) {
+      avoidanceForce.z += (tankBounds.minZ + avoidanceDistance - position.z) * 2;
+    }
+    if (position.z > tankBounds.maxZ - avoidanceDistance) {
+      avoidanceForce.z -= (position.z - (tankBounds.maxZ - avoidanceDistance)) * 2;
+    }
+
+    // Random direction changes based on personality
+    if (Math.random() < personalityMods.directionChangeChance) {
+      this.behaviorState.direction = this.generatePersonalityDirection();
+    }
+
+    // Apply avoidance force to direction
+    if (avoidanceForce.length() > 0) {
+      avoidanceForce.normalize();
+      this.behaviorState.direction.lerp(avoidanceForce, 0.3);
+      this.behaviorState.direction.normalize();
+    }
+
+    // Smooth direction changes
+    const targetDirection = this.behaviorState.direction.clone();
+    const currentDirection = new THREE.Vector3().copy(this.body.velocity).normalize();
+    
+    if (currentDirection.length() > 0) {
+      const lerpFactor = Math.min(personalityMods.turnSpeed * deltaTime, 1);
+      this.behaviorState.direction = currentDirection.lerp(targetDirection, lerpFactor).normalize();
     }
 
     // Apply movement
-    const velocity = this.behaviorState.direction.clone().multiplyScalar(currentSpeed);
+    const velocity = this.behaviorState.direction.clone().multiplyScalar(baseSpeed);
     this.body.velocity.set(velocity.x, velocity.y, velocity.z);
 
-    // Face movement direction
-    this.mesh.lookAt(
-      this.mesh.position.x + velocity.x,
-      this.mesh.position.y + velocity.y,
-      this.mesh.position.z + velocity.z
-    );
+    // Smooth rotation to face movement direction
+    if (velocity.length() > 0.1) {
+      const targetPosition = position.clone().add(velocity);
+      this.mesh.lookAt(targetPosition);
+    }
+  }
+
+  private getPersonalityMovement(): { speedMultiplier: number; directionChangeChance: number; turnSpeed: number } {
+    switch (this.data.personality) {
+      case 'playful':
+        return { speedMultiplier: 1.3, directionChangeChance: 0.08, turnSpeed: 4 };
+      case 'shy':
+        return { speedMultiplier: 0.6, directionChangeChance: 0.03, turnSpeed: 1.5 };
+      case 'energetic':
+        return { speedMultiplier: 1.5, directionChangeChance: 0.05, turnSpeed: 3 };
+      case 'elegant':
+        return { speedMultiplier: 0.8, directionChangeChance: 0.02, turnSpeed: 1 };
+      case 'aggressive':
+        return { speedMultiplier: 1.2, directionChangeChance: 0.06, turnSpeed: 2.5 };
+      case 'wise':
+        return { speedMultiplier: 0.7, directionChangeChance: 0.01, turnSpeed: 0.8 };
+      case 'curious':
+        return { speedMultiplier: 1.0, directionChangeChance: 0.04, turnSpeed: 2 };
+      default:
+        return { speedMultiplier: 1.0, directionChangeChance: 0.03, turnSpeed: 2 };
+    }
+  }
+
+  private generatePersonalityDirection(): THREE.Vector3 {
+    let direction = new THREE.Vector3();
+    
+    switch (this.data.personality) {
+      case 'playful':
+        // Quick, darting movements
+        direction.set(
+          (Math.random() - 0.5) * 4,
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 4
+        );
+        break;
+      case 'shy':
+        // Prefer staying near bottom and decorations
+        direction.set(
+          (Math.random() - 0.5) * 1.5,
+          -0.5 + Math.random() * 0.3, // Bias toward bottom
+          (Math.random() - 0.5) * 1.5
+        );
+        break;
+      case 'energetic':
+        // Fast, constant movement
+        direction.set(
+          (Math.random() - 0.5) * 3,
+          (Math.random() - 0.5) * 1.5,
+          (Math.random() - 0.5) * 3
+        );
+        break;
+      case 'elegant':
+        // Smooth, graceful movements
+        direction.set(
+          (Math.random() - 0.5) * 1.2,
+          (Math.random() - 0.5) * 0.8,
+          (Math.random() - 0.5) * 1.2
+        );
+        break;
+      case 'aggressive':
+        // Bold, territorial movements
+        direction.set(
+          (Math.random() - 0.5) * 2.5,
+          (Math.random() - 0.5) * 1.2,
+          (Math.random() - 0.5) * 2.5
+        );
+        break;
+      case 'wise':
+        // Slow, deliberate movement
+        direction.set(
+          (Math.random() - 0.5) * 1,
+          (Math.random() - 0.5) * 0.6,
+          (Math.random() - 0.5) * 1
+        );
+        break;
+      case 'curious':
+        // Investigative movement toward boundaries
+        const pos = this.mesh.position;
+        direction.set(
+          Math.random() > 0.5 ? 1 : -1,
+          (Math.random() - 0.5) * 1,
+          Math.random() > 0.5 ? 1 : -1
+        );
+        break;
+      default:
+        direction.set(
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 1,
+          (Math.random() - 0.5) * 2
+        );
+    }
+    
+    return direction.normalize();
   }
 
   private updateVisualHealth(): void {

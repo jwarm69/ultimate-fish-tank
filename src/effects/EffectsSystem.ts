@@ -42,6 +42,10 @@ export class EffectsSystem implements Component {
     this.events.on('bubbleEffect', event => {
       this.createBubbleEffect(event.data?.position, event.data?.count);
     });
+
+    this.events.on('dropFood', event => {
+      this.createFoodDrop(event.data?.targetFish);
+    });
   }
 
   private createBackgroundBubbles(): void {
@@ -373,6 +377,121 @@ export class EffectsSystem implements Component {
     if (index > -1) {
       this.particles.splice(index, 1);
     }
+  }
+
+  private createFoodDrop(targetFishId?: string): void {
+    // Create multiple food pellets
+    const pelletCount = 3 + Math.floor(Math.random() * 4);
+    
+    for (let i = 0; i < pelletCount; i++) {
+      const pelletGeometry = new THREE.SphereGeometry(0.05 + Math.random() * 0.03, 8, 6);
+      const pelletMaterial = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color().setHSL(0.1 + Math.random() * 0.1, 0.8, 0.6), // Brown/orange food colors
+        roughness: 0.8,
+        metalness: 0.1,
+        emissive: new THREE.Color(0x332211),
+        emissiveIntensity: 0.1
+      });
+
+      const pellet = new THREE.Mesh(pelletGeometry, pelletMaterial);
+      
+      // Start at water surface, slightly random positions
+      pellet.position.set(
+        (Math.random() - 0.5) * 15, // Random X within tank
+        3.5, // Water surface
+        (Math.random() - 0.5) * 10   // Random Z within tank
+      );
+
+      this.scene.add(pellet);
+
+      // Animate pellet falling with realistic physics
+      this.animateFoodPellet(pellet, targetFishId, 4000 + Math.random() * 2000);
+    }
+  }
+
+  private animateFoodPellet(pellet: THREE.Mesh, targetFishId: string | undefined, duration: number): void {
+    const startTime = Date.now();
+    const fallSpeed = 1.5 + Math.random() * 0.5;
+    const sinkSpeed = 0.3 + Math.random() * 0.2;
+    const driftSpeed = 0.1;
+    
+    let hasHitWater = false;
+    const waterSurface = 3.2;
+    const tankBottom = -3.5;
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const deltaTime = 0.016; // Approximate 60fps
+
+      if (elapsed < duration && pellet.position.y > tankBottom) {
+        if (!hasHitWater && pellet.position.y > waterSurface) {
+          // Falling through air
+          pellet.position.y -= fallSpeed * deltaTime;
+        } else {
+          // In water - slower sinking with drift
+          if (!hasHitWater) {
+            hasHitWater = true;
+            // Create splash effect
+            this.createSplashEffect(pellet.position.clone());
+          }
+          
+          pellet.position.y -= sinkSpeed * deltaTime;
+          pellet.position.x += Math.sin(elapsed * 0.002) * driftSpeed * deltaTime;
+          pellet.position.z += Math.cos(elapsed * 0.003) * driftSpeed * deltaTime;
+          
+          // Slight rotation as it sinks
+          pellet.rotation.x += 0.02;
+          pellet.rotation.z += 0.01;
+        }
+
+        requestAnimationFrame(animate);
+      } else {
+        // Remove pellet when it reaches bottom or times out
+        this.scene.remove(pellet);
+        
+        // Create small bubble effect when it hits bottom
+        if (pellet.position.y <= tankBottom + 0.1) {
+          this.createBubbleEffect(pellet.position, 2);
+        }
+      }
+    };
+
+    animate();
+  }
+
+  private createSplashEffect(position: THREE.Vector3): void {
+    // Create small splash when food hits water
+    const splashCount = 8;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(splashCount * 3);
+
+    for (let i = 0; i < splashCount; i++) {
+      const i3 = i * 3;
+      const angle = (i / splashCount) * Math.PI * 2;
+      const radius = 0.2 + Math.random() * 0.3;
+
+      positions[i3] = position.x + Math.cos(angle) * radius;
+      positions[i3 + 1] = position.y;
+      positions[i3 + 2] = position.z + Math.sin(angle) * radius;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+      color: 0x88ccff,
+      size: 0.04,
+      transparent: true,
+      opacity: 0.8,
+    });
+
+    const splash = new THREE.Points(geometry, material);
+    this.scene.add(splash);
+
+    // Animate splash particles
+    this.animateParticles(splash, {
+      fadeSpeed: 0.03,
+      duration: 1000,
+    });
   }
 
   destroy(): void {

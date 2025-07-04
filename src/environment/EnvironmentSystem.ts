@@ -41,6 +41,114 @@ export class EnvironmentSystem implements Component {
     console.log('✅ Room environment created');
   }
 
+  private createWoodMaterial(): THREE.MeshStandardMaterial {
+    // Create a bright, realistic oak wood texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Light oak colors - much brighter
+    const baseColor = '#E8DCC6';    // Light oak base
+    const darkGrain = '#D2B48C';    // Tan for grain lines
+    const lightGrain = '#F5E6D3';   // Cream highlights
+    const plankEdge = '#C8B99C';    // Darker plank edges
+    
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Horizontal wood planks (more realistic)
+    const plankHeight = 80;
+    for (let y = 0; y < 512; y += plankHeight) {
+      // Plank edge/seam
+      ctx.fillStyle = plankEdge;
+      ctx.fillRect(0, y, 512, 3);
+      ctx.fillRect(0, y + plankHeight - 3, 512, 3);
+      
+      // Wood grain within each plank - horizontal lines
+      for (let i = 0; i < 12; i++) {
+        const grainY = y + 10 + i * 5 + Math.random() * 8;
+        const waveAmplitude = 3 + Math.random() * 5;
+        
+        ctx.strokeStyle = i % 2 === 0 ? darkGrain : lightGrain;
+        ctx.lineWidth = 0.5 + Math.random() * 1.5;
+        ctx.globalAlpha = 0.4 + Math.random() * 0.5;
+        
+        ctx.beginPath();
+        ctx.moveTo(0, grainY);
+        
+        for (let px = 0; px < 512; px += 8) {
+          const waveY = grainY + Math.sin(px * 0.02) * waveAmplitude;
+          ctx.lineTo(px, waveY);
+        }
+        ctx.stroke();
+      }
+      
+      // Random wood knots
+      if (Math.random() > 0.6) {
+        const knotX = Math.random() * 512;
+        const knotY = y + 20 + Math.random() * (plankHeight - 40);
+        
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = darkGrain;
+        ctx.beginPath();
+        ctx.ellipse(knotX, knotY, 4 + Math.random() * 6, 2 + Math.random() * 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    ctx.globalAlpha = 1;
+    
+    // Create texture from canvas
+    const woodTexture = new THREE.CanvasTexture(canvas);
+    woodTexture.wrapS = THREE.RepeatWrapping;
+    woodTexture.wrapT = THREE.RepeatWrapping;
+    woodTexture.repeat.set(3, 2); // More repetition for detailed grain
+    
+    // Enhanced normal map for visible wood grain
+    const normalCanvas = document.createElement('canvas');
+    normalCanvas.width = 512;
+    normalCanvas.height = 512;
+    const normalCtx = normalCanvas.getContext('2d')!;
+    
+    normalCtx.fillStyle = '#8080ff'; // Neutral normal
+    normalCtx.fillRect(0, 0, 512, 512);
+    
+    // Strong normal variations for wood grain depth
+    for (let y = 0; y < 512; y += plankHeight) {
+      // Plank seams - deeper
+      normalCtx.fillStyle = '#4040ff';
+      normalCtx.fillRect(0, y, 512, 3);
+      
+      // Grain lines
+      for (let i = 0; i < 8; i++) {
+        const grainY = y + 10 + i * 8;
+        normalCtx.strokeStyle = '#6060ff';
+        normalCtx.lineWidth = 1;
+        normalCtx.beginPath();
+        normalCtx.moveTo(0, grainY);
+        normalCtx.lineTo(512, grainY);
+        normalCtx.stroke();
+      }
+    }
+    
+    const normalTexture = new THREE.CanvasTexture(normalCanvas);
+    normalTexture.wrapS = THREE.RepeatWrapping;
+    normalTexture.wrapT = THREE.RepeatWrapping;
+    normalTexture.repeat.set(3, 2);
+    
+    return new THREE.MeshStandardMaterial({
+      color: 0xF5DEB3, // Wheat/light wood color - much brighter
+      map: woodTexture,
+      normalMap: normalTexture,
+      normalScale: new THREE.Vector2(0.8, 0.8), // More pronounced grain
+      roughness: 0.6,
+      metalness: 0.02,
+      emissive: new THREE.Color(0x4A3D2A),
+      emissiveIntensity: 0.05, // Slight warm glow
+    });
+  }
+
   private createRoomStructure(): void {
     // Wood floor with realistic texture
     const floorGeometry = new THREE.PlaneGeometry(80, 80);
@@ -85,12 +193,8 @@ export class EnvironmentSystem implements Component {
     this.scene.add(floor);
     this.backgroundElements.push(floor);
     
-    // Room walls with calming aquarium room colors
-    const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0xE6F3FF, // Light aqua blue - calming for aquarium environment
-      roughness: 0.8,
-      metalness: 0.0
-    });
+    // Create realistic wood wall materials
+    const wallMaterial = this.createWoodMaterial();
     
     // Back wall
     const backWallGeometry = new THREE.PlaneGeometry(80, 40);
@@ -464,34 +568,56 @@ export class EnvironmentSystem implements Component {
   private createLighting(): void {
     this.lighting = new THREE.Group();
 
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+    // Much brighter ambient light for overall room illumination
+    const ambientLight = new THREE.AmbientLight(0xf4f1de, 0.8);
     this.lighting.add(ambientLight);
 
-    // Main aquarium light (top)
-    const mainLight = new THREE.RectAreaLight(0xffffff, 0.8, 8, 4);
-    mainLight.position.set(0, 4, 0);
+    // Bright ceiling lights to illuminate wood walls
+    const ceilingLight1 = new THREE.DirectionalLight(0xffeaa7, 1.2);
+    ceilingLight1.position.set(-15, 25, 10);
+    ceilingLight1.target.position.set(0, 0, 0);
+    ceilingLight1.castShadow = true;
+    ceilingLight1.shadow.mapSize.width = 2048;
+    ceilingLight1.shadow.mapSize.height = 2048;
+    this.lighting.add(ceilingLight1);
+    this.lighting.add(ceilingLight1.target);
+
+    const ceilingLight2 = new THREE.DirectionalLight(0xffeaa7, 1.2);
+    ceilingLight2.position.set(15, 25, -10);
+    ceilingLight2.target.position.set(0, 0, 0);
+    this.lighting.add(ceilingLight2);
+    this.lighting.add(ceilingLight2.target);
+
+    // Main aquarium light (top) - brighter
+    const mainLight = new THREE.RectAreaLight(0xffffff, 1.5, 12, 8);
+    mainLight.position.set(0, 6, 0);
     mainLight.lookAt(0, 0, 0);
     this.lighting.add(mainLight);
 
-    // LED strip lighting
-    const ledLight1 = new THREE.DirectionalLight(0x00ffff, 0.8);
-    ledLight1.position.set(-5, 2, 3);
+    // LED strip lighting - more realistic
+    const ledLight1 = new THREE.DirectionalLight(0x87ceeb, 0.6);
+    ledLight1.position.set(-8, 4, 4);
     ledLight1.target.position.set(0, 0, 0);
-    ledLight1.castShadow = true;
-    ledLight1.shadow.mapSize.width = 1024;
-    ledLight1.shadow.mapSize.height = 1024;
     this.lighting.add(ledLight1);
     this.lighting.add(ledLight1.target);
 
-    const ledLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
-    ledLight2.position.set(5, 3, -2);
+    const ledLight2 = new THREE.DirectionalLight(0xffffff, 0.8);
+    ledLight2.position.set(8, 5, -3);
     ledLight2.target.position.set(0, 0, 0);
     this.lighting.add(ledLight2);
     this.lighting.add(ledLight2.target);
 
-    // Underwater effect light
-    const underwaterLight = new THREE.PointLight(0x4080ff, 0.3);
+    // Warm side lighting to show wood grain
+    const sideLight1 = new THREE.PointLight(0xffd07b, 0.8);
+    sideLight1.position.set(-25, 10, 15);
+    this.lighting.add(sideLight1);
+
+    const sideLight2 = new THREE.PointLight(0xffd07b, 0.8);
+    sideLight2.position.set(25, 10, -15);
+    this.lighting.add(sideLight2);
+
+    // Underwater effect light - softer
+    const underwaterLight = new THREE.PointLight(0x87ceeb, 0.4);
     underwaterLight.position.set(0, -1, 0);
     this.lighting.add(underwaterLight);
 
@@ -503,8 +629,8 @@ export class EnvironmentSystem implements Component {
     const bgGeometry = new THREE.SphereGeometry(50, 32, 16);
     const bgMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        topColor: { value: new THREE.Color(0x0077be) },
-        bottomColor: { value: new THREE.Color(0x001e3c) },
+        topColor: { value: new THREE.Color(0x87ceeb) }, // Sky blue
+        bottomColor: { value: new THREE.Color(0xddeeff) }, // Very light blue
         offset: { value: 33 },
         exponent: { value: 0.6 },
       },

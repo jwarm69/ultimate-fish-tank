@@ -13,8 +13,8 @@ export class Camera implements Component {
   private mousePos = { x: 0, y: 0 };
   private targetRotation = { x: 0, y: 0 };
   private currentRotation = { x: 0, y: 0 };
-  private radius = 12;
-  private height = 8;
+  private radius = 18; // Start further back to see full scene
+  private height = 10;
 
   constructor(config: CameraConfig) {
     this.config = config;
@@ -79,7 +79,7 @@ export class Camera implements Component {
     canvas.addEventListener('wheel', event => {
       event.preventDefault();
       this.radius += event.deltaY * 0.01;
-      this.radius = Math.max(8, Math.min(20, this.radius));
+      this.radius = Math.max(8, Math.min(40, this.radius)); // Allow zooming out much further
     });
 
     // Set initial cursor

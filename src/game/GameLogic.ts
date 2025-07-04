@@ -158,16 +158,32 @@ export class GameLogic implements Component {
   }
 
   private handleFeedButton(): void {
+    const feedCost = 5; // Cost per feeding
+    
     const selectedFish = this.fishSystem.getSelectedFish();
     if (selectedFish) {
-      this.events.emit('feedFish', { fishId: selectedFish.getId() });
+      // Feed specific fish
+      if (this.playerStats.coins >= feedCost) {
+        this.playerStats.coins -= feedCost;
+        this.events.emit('feedFish', { fishId: selectedFish.getId() });
+        this.events.emit('dropFood', { targetFish: selectedFish.getId() });
+      } else {
+        this.events.emit('message', { text: `⚠️ Not enough coins to feed fish! (Cost: ${feedCost} coins)` });
+      }
     } else {
       // Feed all fish
       const fish = this.fishSystem.getFish();
       if (fish.length > 0) {
-        fish.forEach(f => {
-          this.events.emit('feedFish', { fishId: f.getId() });
-        });
+        const totalCost = feedCost * fish.length;
+        if (this.playerStats.coins >= totalCost) {
+          this.playerStats.coins -= totalCost;
+          fish.forEach(f => {
+            this.events.emit('feedFish', { fishId: f.getId() });
+            this.events.emit('dropFood', { targetFish: f.getId() });
+          });
+        } else {
+          this.events.emit('message', { text: `⚠️ Not enough coins to feed all fish! (Cost: ${totalCost} coins)` });
+        }
       } else {
         this.events.emit('message', { text: '⚠️ No fish to feed!' });
       }
