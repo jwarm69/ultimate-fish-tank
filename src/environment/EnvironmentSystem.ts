@@ -14,6 +14,9 @@ export class EnvironmentSystem implements Component {
   private tank!: THREE.Group;
   private lighting!: THREE.Group;
   private backgroundElements: THREE.Object3D[] = [];
+  private waterCaustics?: THREE.Mesh;
+  private floatingParticles: THREE.Points[] = [];
+  private bubbleSystem?: THREE.Group;
 
   constructor(config: EnvironmentSystemConfig) {
     this.scene = config.scene;
@@ -440,6 +443,15 @@ export class EnvironmentSystem implements Component {
     const water = new THREE.Mesh(waterGeometry, waterMaterial);
     water.position.y = -0.2; // Slightly below tank top
     this.tank.add(water);
+    
+    // Add water caustics to tank bottom
+    this.createWaterCaustics(tankSize);
+    
+    // Add floating particles throughout water
+    this.createFloatingParticles(tankSize);
+    
+    // Enhanced bubble system
+    this.createEnhancedBubbleSystem(tankSize);
   }
 
   private createDecorations(tankSize: any): void {
@@ -550,8 +562,7 @@ export class EnvironmentSystem implements Component {
   }
 
   private createBubbleGenerator(tankSize: any): void {
-    // This would create a bubble particle system
-    // For now, we'll create a simple bubbler decoration
+    // Create a simple bubbler decoration
     const bubblerGeometry = new THREE.CylinderGeometry(0.05, 0.1, 0.3);
     const bubblerMaterial = new THREE.MeshStandardMaterial({
       color: 0x444444,
@@ -563,6 +574,218 @@ export class EnvironmentSystem implements Component {
     bubbler.position.set(4, -3.5, -2);
     this.tank.add(bubbler);
     this.backgroundElements.push(bubbler);
+  }
+  
+  private createWaterCaustics(tankSize: any): void {
+    // Create animated caustic light patterns on tank bottom
+    const causticsGeometry = new THREE.PlaneGeometry(
+      tankSize.width - 0.1,
+      tankSize.depth - 0.1
+    );
+    
+    // Caustics shader material
+    const causticsMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        intensity: { value: 0.3 },
+        scale: { value: 8.0 },
+        waterColor: { value: new THREE.Color(0x87ceeb) }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        uniform float intensity;
+        uniform float scale;
+        uniform vec3 waterColor;
+        varying vec2 vUv;
+        
+        // Noise function for organic caustic patterns
+        float noise(vec2 p) {
+          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+        
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          for(int i = 0; i < 4; i++) {
+            value += amplitude * noise(p);
+            p *= 2.0;
+            amplitude *= 0.5;
+          }
+          return value;
+        }
+        
+        void main() {
+          vec2 uv = vUv * scale;
+          
+          // Create flowing water caustic patterns
+          float t = time * 0.5;
+          vec2 flow1 = vec2(cos(t * 0.3), sin(t * 0.4)) * 0.3;
+          vec2 flow2 = vec2(sin(t * 0.2), cos(t * 0.5)) * 0.2;
+          
+          float caustic1 = fbm(uv + flow1);
+          float caustic2 = fbm(uv * 1.3 + flow2);
+          
+          // Combine caustic patterns
+          float caustics = (caustic1 + caustic2) * 0.5;
+          caustics = pow(caustics, 2.0) * intensity;
+          
+          // Add subtle blue tint
+          vec3 color = waterColor * (0.1 + caustics);
+          
+          gl_FragColor = vec4(color, caustics * 0.8);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    
+    this.waterCaustics = new THREE.Mesh(causticsGeometry, causticsMaterial);
+    this.waterCaustics.rotation.x = -Math.PI / 2;
+    this.waterCaustics.position.y = -tankSize.height / 2 + 0.31; // Just above substrate
+    this.tank.add(this.waterCaustics);
+  }
+  
+  private createFloatingParticles(tankSize: any): void {
+    // Create multiple particle systems for underwater life
+    const particleTypes = [
+      { count: 50, size: 0.02, color: 0xffffff, speed: 0.5, name: 'micro-bubbles' },
+      { count: 30, size: 0.01, color: 0x88aa88, speed: 0.2, name: 'debris' },
+      { count: 20, size: 0.005, color: 0xcccccc, speed: 0.1, name: 'plankton' }
+    ];
+    
+    particleTypes.forEach(type => {
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(type.count * 3);
+      const velocities = new Float32Array(type.count * 3);
+      
+      // Distribute particles throughout tank water volume
+      for (let i = 0; i < type.count * 3; i += 3) {
+        positions[i] = (Math.random() - 0.5) * (tankSize.width - 1);
+        positions[i + 1] = (Math.random() - 0.5) * (tankSize.height - 1);
+        positions[i + 2] = (Math.random() - 0.5) * (tankSize.depth - 1);
+        
+        // Random slow drift velocities
+        velocities[i] = (Math.random() - 0.5) * type.speed;
+        velocities[i + 1] = Math.random() * type.speed * 0.5; // Slight upward bias
+        velocities[i + 2] = (Math.random() - 0.5) * type.speed;
+      }
+      
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.userData = { velocities, type, tankSize };
+      
+      const material = new THREE.PointsMaterial({
+        color: type.color,
+        size: type.size,
+        transparent: true,
+        opacity: type.name === 'micro-bubbles' ? 0.6 : 0.3,
+        blending: THREE.AdditiveBlending,
+        depthTest: false
+      });
+      
+      const particles = new THREE.Points(geometry, material);
+      this.tank.add(particles);
+      this.floatingParticles.push(particles);
+    });
+  }
+  
+  private createEnhancedBubbleSystem(tankSize: any): void {
+    this.bubbleSystem = new THREE.Group();
+    
+    // Create bubble stream from aerator
+    const bubbleCount = 30;
+    const bubbleGeometry = new THREE.BufferGeometry();
+    const bubblePositions = new Float32Array(bubbleCount * 3);
+    const bubbleSizes = new Float32Array(bubbleCount);
+    
+    // Position bubbles in a stream from bubbler
+    const bubblerX = 4;
+    const bubblerY = -3.5;
+    const bubblerZ = -2;
+    
+    for (let i = 0; i < bubbleCount; i++) {
+      const height = (i / bubbleCount) * (tankSize.height - 1);
+      const spread = Math.min(height * 0.1, 0.5); // Bubbles spread as they rise
+      
+      bubblePositions[i * 3] = bubblerX + (Math.random() - 0.5) * spread;
+      bubblePositions[i * 3 + 1] = bubblerY + height;
+      bubblePositions[i * 3 + 2] = bubblerZ + (Math.random() - 0.5) * spread;
+      
+      bubbleSizes[i] = 0.02 + Math.random() * 0.03; // Varying bubble sizes
+    }
+    
+    bubbleGeometry.setAttribute('position', new THREE.BufferAttribute(bubblePositions, 3));
+    bubbleGeometry.setAttribute('size', new THREE.BufferAttribute(bubbleSizes, 1));
+    
+    const bubbleMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        pointTexture: { value: this.createBubbleTexture() }
+      },
+      vertexShader: `
+        attribute float size;
+        uniform float time;
+        varying float vAlpha;
+        
+        void main() {
+          // Animate bubbles rising with slight wobble
+          vec3 pos = position;
+          pos.y = mod(pos.y + time * 2.0, 8.0) - 4.0;
+          pos.x += sin(pos.y * 0.5 + time) * 0.1;
+          pos.z += cos(pos.y * 0.3 + time) * 0.1;
+          
+          vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          gl_PointSize = size * (300.0 / -mvPosition.z);
+          
+          // Fade out bubbles as they reach surface
+          vAlpha = 1.0 - smoothstep(2.0, 4.0, pos.y);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D pointTexture;
+        varying float vAlpha;
+        
+        void main() {
+          vec4 texColor = texture2D(pointTexture, gl_PointCoord);
+          gl_FragColor = vec4(texColor.rgb, texColor.a * vAlpha * 0.6);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthTest: false
+    });
+    
+    const bubbles = new THREE.Points(bubbleGeometry, bubbleMaterial);
+    this.bubbleSystem.add(bubbles);
+    
+    this.tank.add(this.bubbleSystem);
+    this.backgroundElements.push(this.bubbleSystem);
+  }
+  
+  private createBubbleTexture(): THREE.Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Create circular bubble texture
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.8)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
+    
+    return new THREE.CanvasTexture(canvas);
   }
 
   private createLighting(): void {
@@ -662,9 +885,60 @@ export class EnvironmentSystem implements Component {
   }
 
   update(deltaTime: number): void {
-    // Animate background elements (gentle swaying plants, etc.)
     const time = Date.now() * 0.001;
 
+    // Animate water caustics
+    if (this.waterCaustics) {
+      const material = this.waterCaustics.material as THREE.ShaderMaterial;
+      material.uniforms.time.value = time;
+    }
+    
+    // Animate bubble system
+    if (this.bubbleSystem) {
+      this.bubbleSystem.children.forEach(child => {
+        if (child instanceof THREE.Points) {
+          const material = child.material as THREE.ShaderMaterial;
+          if (material.uniforms && material.uniforms.time) {
+            material.uniforms.time.value = time;
+          }
+        }
+      });
+    }
+    
+    // Animate floating particles
+    this.floatingParticles.forEach(particles => {
+      const positions = particles.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const velocities = particles.geometry.userData.velocities;
+      const type = particles.geometry.userData.type;
+      const tankSize = particles.geometry.userData.tankSize;
+      
+      for (let i = 0; i < positions.count; i++) {
+        const i3 = i * 3;
+        
+        // Update positions
+        positions.array[i3] += velocities[i3] * deltaTime;
+        positions.array[i3 + 1] += velocities[i3 + 1] * deltaTime;
+        positions.array[i3 + 2] += velocities[i3 + 2] * deltaTime;
+        
+        // Wrap particles that leave tank bounds
+        if (Math.abs(positions.array[i3]) > tankSize.width / 2) {
+          positions.array[i3] = (Math.random() - 0.5) * tankSize.width;
+        }
+        if (positions.array[i3 + 1] > tankSize.height / 2) {
+          positions.array[i3 + 1] = -tankSize.height / 2;
+        }
+        if (positions.array[i3 + 1] < -tankSize.height / 2) {
+          positions.array[i3 + 1] = tankSize.height / 2;
+        }
+        if (Math.abs(positions.array[i3 + 2]) > tankSize.depth / 2) {
+          positions.array[i3 + 2] = (Math.random() - 0.5) * tankSize.depth;
+        }
+      }
+      
+      positions.needsUpdate = true;
+    });
+
+    // Animate background elements (gentle swaying plants, etc.)
     this.backgroundElements.forEach((element, index) => {
       if (element.userData.isPlant) {
         // Gentle swaying motion for plants
@@ -684,6 +958,30 @@ export class EnvironmentSystem implements Component {
 
     if (this.lighting) {
       this.scene.remove(this.lighting);
+    }
+
+    // Clean up water effects
+    if (this.waterCaustics) {
+      this.tank.remove(this.waterCaustics);
+      this.waterCaustics.geometry.dispose();
+      (this.waterCaustics.material as THREE.Material).dispose();
+    }
+    
+    this.floatingParticles.forEach(particles => {
+      this.tank.remove(particles);
+      particles.geometry.dispose();
+      (particles.material as THREE.Material).dispose();
+    });
+    this.floatingParticles = [];
+    
+    if (this.bubbleSystem) {
+      this.tank.remove(this.bubbleSystem);
+      this.bubbleSystem.children.forEach(child => {
+        if (child instanceof THREE.Points) {
+          child.geometry.dispose();
+          (child.material as THREE.Material).dispose();
+        }
+      });
     }
 
     this.backgroundElements.forEach(element => {
