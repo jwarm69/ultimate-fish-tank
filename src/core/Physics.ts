@@ -23,7 +23,7 @@ export class Physics implements Component {
   }
 
   private createTankBoundaries(): void {
-    const tankSize = { width: 10, height: 6, depth: 6 };
+    const tankSize = { width: 20, height: 8, depth: 12 };
 
     // Create invisible walls
     const wallMaterial = new CANNON.Material('wall');

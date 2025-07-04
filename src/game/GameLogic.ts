@@ -162,16 +162,16 @@ export class GameLogic implements Component {
     const selectedFish = this.fishSystem.getSelectedFish();
     if (selectedFish) {
       // Feed specific fish
-      this.events.emit('feedFish', { fishId: selectedFish.getId() });
-      this.events.emit('dropFood', { targetFish: selectedFish.getId() });
+      this.events.emitImmediate('feedFish', { fishId: selectedFish.getId() });
+      this.events.emitImmediate('dropFood', { targetFish: selectedFish.getId() });
       this.events.emit('message', { text: '🍽️ Fed selected fish!' });
     } else {
       // Feed all fish
       const fish = this.fishSystem.getFish();
       if (fish.length > 0) {
         fish.forEach(f => {
-          this.events.emit('feedFish', { fishId: f.getId() });
-          this.events.emit('dropFood', { targetFish: f.getId() });
+          this.events.emitImmediate('feedFish', { fishId: f.getId() });
+          this.events.emitImmediate('dropFood', { targetFish: f.getId() });
         });
         this.events.emit('message', { text: `🍽️ Fed all ${fish.length} fish!` });
       } else {
@@ -183,8 +183,8 @@ export class GameLogic implements Component {
   private handleCleanButton(): void {
     if (this.playerStats.coins >= 20) {
       this.playerStats.coins -= 20;
-      this.events.emit('tankCleaned');
-      this.events.emit('cleaningEffect');
+      this.events.emitImmediate('tankCleaned');
+      this.events.emitImmediate('cleaningEffect');
       this.events.emit('coinsUpdated', { coins: this.playerStats.coins });
       this.events.emit('message', { text: '🧹 Tank cleaned! (-20 coins)' });
     } else {

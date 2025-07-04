@@ -96,15 +96,15 @@ export class UISystem implements Component {
     }
 
     feedBtn.addEventListener('click', () => {
-      this.events.emit('feedFish');
+      this.events.emitImmediate('feedFish');
     });
 
     cleanBtn.addEventListener('click', () => {
-      this.events.emit('cleanTank');
+      this.events.emitImmediate('cleanTank');
     });
 
     addFishBtn.addEventListener('click', () => {
-      this.events.emit('addFish');
+      this.events.emitImmediate('addFish');
     });
 
     infoBtn.addEventListener('click', () => {
@@ -118,15 +118,15 @@ export class UISystem implements Component {
     feedThisFishBtn?.addEventListener('click', () => {
       const selectedFish = this.fishSystem.getSelectedFish();
       if (selectedFish) {
-        this.events.emit('feedFish', { fishId: selectedFish.getId() });
-        this.events.emit('dropFood', { targetFish: selectedFish.getId() });
+        this.events.emitImmediate('feedFish', { fishId: selectedFish.getId() });
+        this.events.emitImmediate('dropFood', { targetFish: selectedFish.getId() });
       }
     });
 
     petThisFishBtn?.addEventListener('click', () => {
       const selectedFish = this.fishSystem.getSelectedFish();
       if (selectedFish) {
-        this.events.emit('petFish', { fishId: selectedFish.getId() });
+        this.events.emitImmediate('petFish', { fishId: selectedFish.getId() });
       }
     });
   }
