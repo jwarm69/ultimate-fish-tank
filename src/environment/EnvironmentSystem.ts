@@ -196,24 +196,24 @@ export class EnvironmentSystem implements Component {
     // Create realistic wood wall materials
     const wallMaterial = this.createWoodMaterial();
     
-    // Back wall
-    const backWallGeometry = new THREE.PlaneGeometry(80, 40);
+    // Back wall - increased height and lowered position to eliminate blue spaces
+    const backWallGeometry = new THREE.PlaneGeometry(80, 45);
     const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
-    backWall.position.set(0, 8, -35);
+    backWall.position.set(0, 6, -35);
     backWall.receiveShadow = true;
     this.scene.add(backWall);
     this.backgroundElements.push(backWall);
     
-    // Side walls
+    // Side walls - same height and position adjustments
     const leftWall = new THREE.Mesh(backWallGeometry, wallMaterial.clone());
-    leftWall.position.set(-35, 8, 0);
+    leftWall.position.set(-35, 6, 0);
     leftWall.rotation.y = Math.PI / 2;
     leftWall.receiveShadow = true;
     this.scene.add(leftWall);
     this.backgroundElements.push(leftWall);
     
     const rightWall = new THREE.Mesh(backWallGeometry, wallMaterial.clone());
-    rightWall.position.set(35, 8, 0);
+    rightWall.position.set(35, 6, 0);
     rightWall.rotation.y = -Math.PI / 2;
     rightWall.receiveShadow = true;
     this.scene.add(rightWall);
@@ -271,20 +271,20 @@ export class EnvironmentSystem implements Component {
       this.backgroundElements.push(leg);
     });
     
-    // Cabinet doors (decorative)
-    const doorGeometry = new THREE.BoxGeometry(11, 6, 0.5);
+    // Cabinet doors (decorative) - lowered to align with cabinet body
+    const doorGeometry = new THREE.BoxGeometry(10.5, 6, 0.5);
     const doorMaterial = new THREE.MeshStandardMaterial({
       color: 0x654321, // Darker wood
       roughness: 0.7
     });
     
     const leftDoor = new THREE.Mesh(doorGeometry, doorMaterial);
-    leftDoor.position.set(-6.5, -6, standDepth/2 + 0.3);
+    leftDoor.position.set(-6.75, -8, standDepth/2 + 0.3);
     this.scene.add(leftDoor);
     this.backgroundElements.push(leftDoor);
     
     const rightDoor = new THREE.Mesh(doorGeometry, doorMaterial.clone());
-    rightDoor.position.set(6.5, -6, standDepth/2 + 0.3);
+    rightDoor.position.set(6.75, -8, standDepth/2 + 0.3);
     this.scene.add(rightDoor);
     this.backgroundElements.push(rightDoor);
     
@@ -297,13 +297,13 @@ export class EnvironmentSystem implements Component {
     });
     
     const leftHandle = new THREE.Mesh(handleGeometry, handleMaterial);
-    leftHandle.position.set(-2, -6, standDepth/2 + 0.8);
+    leftHandle.position.set(-2, -8, standDepth/2 + 0.8);
     leftHandle.rotation.z = Math.PI / 2;
     this.scene.add(leftHandle);
     this.backgroundElements.push(leftHandle);
     
     const rightHandle = new THREE.Mesh(handleGeometry, handleMaterial.clone());
-    rightHandle.position.set(2, -6, standDepth/2 + 0.8);
+    rightHandle.position.set(2, -8, standDepth/2 + 0.8);
     rightHandle.rotation.z = Math.PI / 2;
     this.scene.add(rightHandle);
     this.backgroundElements.push(rightHandle);
