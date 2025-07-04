@@ -45,132 +45,377 @@ export class Fish implements Component {
   private createMesh(): void {
     const group = new THREE.Group();
 
-    // Main fish body - streamlined torpedo shape
-    const bodyGeometry = new THREE.CapsuleGeometry(this.data.config.size * 0.5, this.data.config.size * 1.5, 4, 16);
-    bodyGeometry.rotateZ(Math.PI / 2); // Orient horizontally
-
-    const bodyMaterial = new THREE.MeshPhysicalMaterial({
-      color: this.data.config.bodyColor,
-      metalness: 0.3,
-      roughness: 0.4,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.2,
-      sheen: 0.5,
-      sheenColor: new THREE.Color(0xffffff),
-      emissive: this.data.config.bodyColor.clone().multiplyScalar(0.1),
-      transparent: this.data.config.translucent,
-      opacity: this.data.config.translucent ? 0.9 : 1,
-      iridescence: this.data.config.iridescent ? 0.8 : 0,
-      iridescenceIOR: 1.3,
-      iridescenceThicknessRange: [100, 800],
-    });
-
-    const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    // Create realistic fish body with proper anatomy
+    const bodyMesh = this.createRealisticFishBody();
     group.add(bodyMesh);
 
-    // Tail fin - beautiful fan shape
-    const tailGeometry = new THREE.ConeGeometry(
-      this.data.config.size * 0.8,
-      this.data.config.size * 0.3,
-      8,
-      4,
-      false,
-      0,
-      Math.PI * 1.8
-    );
-    
-    const finMaterial = new THREE.MeshPhysicalMaterial({
-      color: this.data.config.finColor,
-      transparent: true,
-      opacity: 0.7,
-      metalness: 0.1,
-      roughness: 0.3,
-      clearcoat: 0.5,
-      transmission: 0.2,
-      side: THREE.DoubleSide,
-    });
+    // Create realistic fins
+    const fins = this.createRealisticFins();
+    fins.forEach(fin => group.add(fin));
 
-    const tailMesh = new THREE.Mesh(tailGeometry, finMaterial);
-    tailMesh.position.x = -this.data.config.size * 1.2;
-    tailMesh.rotation.z = Math.PI / 2;
-    tailMesh.rotation.y = Math.PI / 2;
-    group.add(tailMesh);
 
-    // Dorsal fin - curved blade shape
-    const dorsalCurve = new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, this.data.config.size * 0.6, 0),
-      new THREE.Vector3(-this.data.config.size * 0.4, this.data.config.size * 0.8, 0)
-    );
-    
-    const dorsalGeometry = new THREE.TubeGeometry(dorsalCurve, 8, this.data.config.size * 0.05, 4);
-    const dorsalMesh = new THREE.Mesh(dorsalGeometry, finMaterial.clone());
-    dorsalMesh.position.set(-this.data.config.size * 0.2, this.data.config.size * 0.3, 0);
-    group.add(dorsalMesh);
-
-    // Pectoral fins - wing-like
-    const pectoralGeometry = new THREE.ConeGeometry(
-      this.data.config.size * 0.3,
-      this.data.config.size * 0.6,
-      6,
-      2
-    );
-    
-    const leftPectoral = new THREE.Mesh(pectoralGeometry, finMaterial.clone());
-    leftPectoral.position.set(this.data.config.size * 0.2, -this.data.config.size * 0.1, this.data.config.size * 0.4);
-    leftPectoral.rotation.set(Math.PI / 6, 0, Math.PI / 4);
-    group.add(leftPectoral);
-
-    const rightPectoral = new THREE.Mesh(pectoralGeometry, finMaterial.clone());
-    rightPectoral.position.set(this.data.config.size * 0.2, -this.data.config.size * 0.1, -this.data.config.size * 0.4);
-    rightPectoral.rotation.set(-Math.PI / 6, 0, -Math.PI / 4);
-    group.add(rightPectoral);
-
-    // Eyes - realistic with pupils and highlights
-    const eyeWhiteGeometry = new THREE.SphereGeometry(this.data.config.size * 0.15, 8, 6);
-    const eyeWhiteMaterial = new THREE.MeshPhysicalMaterial({ 
-      color: 0xffffff,
-      clearcoat: 1,
-      clearcoatRoughness: 0,
-    });
-
-    const eyePupilGeometry = new THREE.SphereGeometry(this.data.config.size * 0.08, 8, 6);
-    const eyePupilMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-
-    const eyeHighlightGeometry = new THREE.SphereGeometry(this.data.config.size * 0.03, 6, 4);
-    const eyeHighlightMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-    // Left eye
-    const leftEyeWhite = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
-    leftEyeWhite.position.set(this.data.config.size * 0.7, this.data.config.size * 0.2, this.data.config.size * 0.3);
-    group.add(leftEyeWhite);
-
-    const leftEyePupil = new THREE.Mesh(eyePupilGeometry, eyePupilMaterial);
-    leftEyePupil.position.set(this.data.config.size * 0.75, this.data.config.size * 0.2, this.data.config.size * 0.3);
-    group.add(leftEyePupil);
-
-    const leftEyeHighlight = new THREE.Mesh(eyeHighlightGeometry, eyeHighlightMaterial);
-    leftEyeHighlight.position.set(this.data.config.size * 0.77, this.data.config.size * 0.25, this.data.config.size * 0.3);
-    group.add(leftEyeHighlight);
-
-    // Right eye
-    const rightEyeWhite = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial.clone());
-    rightEyeWhite.position.set(this.data.config.size * 0.7, this.data.config.size * 0.2, -this.data.config.size * 0.3);
-    group.add(rightEyeWhite);
-
-    const rightEyePupil = new THREE.Mesh(eyePupilGeometry, eyePupilMaterial.clone());
-    rightEyePupil.position.set(this.data.config.size * 0.75, this.data.config.size * 0.2, -this.data.config.size * 0.3);
-    group.add(rightEyePupil);
-
-    const rightEyeHighlight = new THREE.Mesh(eyeHighlightGeometry, eyeHighlightMaterial.clone());
-    rightEyeHighlight.position.set(this.data.config.size * 0.77, this.data.config.size * 0.25, -this.data.config.size * 0.3);
-    group.add(rightEyeHighlight);
+    // Create realistic eyes
+    const eyes = this.createRealisticEyes();
+    eyes.forEach(eye => group.add(eye));
 
     this.mesh = group;
     this.scene.add(this.mesh);
 
     // Create selection glow (initially hidden)
     this.createSelectionGlow();
+  }
+
+  private createRealisticFishBody(): THREE.Mesh {
+    // Create custom fish body geometry with proper fish anatomy
+    const bodyGeometry = new THREE.BufferGeometry();
+    const size = this.data.config.size;
+    
+    // Define fish body shape points (more realistic torpedo/oval shape)
+    const segments = 32;
+    const rings = 16;
+    const positions: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    
+    // Create fish body with tapering from head to tail
+    for (let i = 0; i <= rings; i++) {
+      const v = i / rings;
+      const y = (v - 0.5) * size * 2.5; // Length of fish
+      
+      // Fish body profile - wider in middle, tapered at ends
+      let radius;
+      if (v < 0.3) {
+        // Head area - gradual taper
+        radius = size * (0.2 + 0.6 * (v / 0.3));
+      } else if (v < 0.7) {
+        // Body area - full width
+        radius = size * 0.8;
+      } else {
+        // Tail area - rapid taper
+        radius = size * 0.8 * (1 - (v - 0.7) / 0.3);
+      }
+      
+      for (let j = 0; j <= segments; j++) {
+        const u = j / segments;
+        const theta = u * Math.PI * 2;
+        
+        // Slightly flatten the fish (not perfectly round)
+        const x = Math.cos(theta) * radius;
+        const z = Math.sin(theta) * radius * 0.7; // Flattened
+        
+        positions.push(x, y, z);
+        
+        // Calculate normals
+        const normal = new THREE.Vector3(x, 0, z).normalize();
+        normals.push(normal.x, normal.y, normal.z);
+        
+        // UV coordinates
+        uvs.push(u, v);
+      }
+    }
+    
+    // Create indices for faces
+    for (let i = 0; i < rings; i++) {
+      for (let j = 0; j < segments; j++) {
+        const a = i * (segments + 1) + j;
+        const b = a + segments + 1;
+        const c = a + 1;
+        const d = b + 1;
+        
+        indices.push(a, b, c);
+        indices.push(c, b, d);
+      }
+    }
+    
+    bodyGeometry.setIndex(indices);
+    bodyGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    bodyGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    bodyGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    
+    // Rotate to face forward
+    bodyGeometry.rotateZ(Math.PI / 2);
+    
+    // Create realistic fish material with scales
+    const bodyMaterial = new THREE.MeshPhysicalMaterial({
+      color: this.data.config.bodyColor,
+      map: this.createFishScaleTexture(),
+      normalMap: this.createScaleNormalMap(),
+      metalness: 0.1,
+      roughness: 0.2,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.1,
+      sheen: 0.8,
+      sheenColor: new THREE.Color(0xffffff),
+      iridescence: this.data.config.iridescent ? 1.0 : 0.3,
+      iridescenceIOR: 1.3,
+      iridescenceThicknessRange: [100, 800],
+      transmission: this.data.config.translucent ? 0.1 : 0,
+      transparent: this.data.config.translucent,
+      opacity: this.data.config.translucent ? 0.9 : 1,
+    });
+    
+    return new THREE.Mesh(bodyGeometry, bodyMaterial);
+  }
+  
+  private createFishScaleTexture(): THREE.Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Base fish color
+    const baseColor = `#${this.data.config.bodyColor.getHexString()}`;
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(0, 0, 512, 256);
+    
+    // Create fish scale pattern
+    const scaleSize = 12;
+    const scaleRows = Math.ceil(256 / (scaleSize * 0.8));
+    const scaleCols = Math.ceil(512 / scaleSize);
+    
+    for (let row = 0; row < scaleRows; row++) {
+      for (let col = 0; col < scaleCols; col++) {
+        const x = col * scaleSize + (row % 2) * (scaleSize / 2);
+        const y = row * scaleSize * 0.8;
+        
+        // Scale outline
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.arc(x, y, scaleSize / 2, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Scale highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.beginPath();
+        ctx.arc(x - scaleSize / 4, y - scaleSize / 4, scaleSize / 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 1);
+    
+    return texture;
+  }
+  
+  private createScaleNormalMap(): THREE.Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Neutral normal (blue)
+    ctx.fillStyle = '#8080ff';
+    ctx.fillRect(0, 0, 512, 256);
+    
+    // Scale bumps
+    const scaleSize = 12;
+    const scaleRows = Math.ceil(256 / (scaleSize * 0.8));
+    const scaleCols = Math.ceil(512 / scaleSize);
+    
+    for (let row = 0; row < scaleRows; row++) {
+      for (let col = 0; col < scaleCols; col++) {
+        const x = col * scaleSize + (row % 2) * (scaleSize / 2);
+        const y = row * scaleSize * 0.8;
+        
+        // Create subtle normal variation for each scale
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, scaleSize / 2);
+        gradient.addColorStop(0, '#9090ff');
+        gradient.addColorStop(1, '#7070ff');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, scaleSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 1);
+    
+    return texture;
+  }
+  
+  private createRealisticFins(): THREE.Mesh[] {
+    const fins: THREE.Mesh[] = [];
+    const size = this.data.config.size;
+    
+    // Fin material
+    const finMaterial = new THREE.MeshPhysicalMaterial({
+      color: this.data.config.finColor,
+      transparent: true,
+      opacity: 0.8,
+      metalness: 0.0,
+      roughness: 0.3,
+      clearcoat: 0.5,
+      transmission: 0.3,
+      side: THREE.DoubleSide,
+    });
+    
+    // Tail fin - realistic fan shape
+    const tailGeometry = this.createTailFinGeometry(size);
+    const tailFin = new THREE.Mesh(tailGeometry, finMaterial.clone());
+    tailFin.position.set(-size * 1.3, 0, 0);
+    fins.push(tailFin);
+    
+    // Dorsal fin
+    const dorsalGeometry = this.createDorsalFinGeometry(size);
+    const dorsalFin = new THREE.Mesh(dorsalGeometry, finMaterial.clone());
+    dorsalFin.position.set(-size * 0.3, size * 0.6, 0);
+    fins.push(dorsalFin);
+    
+    // Pectoral fins
+    const pectoralGeometry = this.createPectoralFinGeometry(size);
+    const leftPectoral = new THREE.Mesh(pectoralGeometry, finMaterial.clone());
+    leftPectoral.position.set(size * 0.2, -size * 0.1, size * 0.5);
+    leftPectoral.rotation.set(0, 0, Math.PI / 6);
+    fins.push(leftPectoral);
+    
+    const rightPectoral = new THREE.Mesh(pectoralGeometry, finMaterial.clone());
+    rightPectoral.position.set(size * 0.2, -size * 0.1, -size * 0.5);
+    rightPectoral.rotation.set(0, 0, -Math.PI / 6);
+    fins.push(rightPectoral);
+    
+    // Anal fin
+    const analGeometry = this.createAnalFinGeometry(size);
+    const analFin = new THREE.Mesh(analGeometry, finMaterial.clone());
+    analFin.position.set(-size * 0.5, -size * 0.4, 0);
+    fins.push(analFin);
+    
+    return fins;
+  }
+  
+  private createTailFinGeometry(size: number): THREE.BufferGeometry {
+    const geometry = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    const indices: number[] = [];
+    
+    // Create fan-shaped tail
+    const centerX = 0;
+    const centerY = 0;
+    const radius = size * 0.8;
+    const segments = 16;
+    
+    // Center point
+    positions.push(centerX, centerY, 0);
+    
+    // Fan points
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 1.4 - Math.PI * 0.7;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      positions.push(x, y, 0);
+    }
+    
+    // Create triangular faces
+    for (let i = 0; i < segments; i++) {
+      indices.push(0, i + 1, i + 2);
+    }
+    
+    geometry.setIndex(indices);
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.computeVertexNormals();
+    
+    return geometry;
+  }
+  
+  private createDorsalFinGeometry(size: number): THREE.BufferGeometry {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.quadraticCurveTo(size * 0.3, size * 0.4, size * 0.6, size * 0.3);
+    shape.quadraticCurveTo(size * 0.8, size * 0.2, size, 0);
+    shape.lineTo(0, 0);
+    
+    const geometry = new THREE.ShapeGeometry(shape);
+    return geometry;
+  }
+  
+  private createPectoralFinGeometry(size: number): THREE.BufferGeometry {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.quadraticCurveTo(size * 0.2, size * 0.3, size * 0.4, size * 0.2);
+    shape.quadraticCurveTo(size * 0.3, 0, 0, 0);
+    
+    const geometry = new THREE.ShapeGeometry(shape);
+    return geometry;
+  }
+  
+  private createAnalFinGeometry(size: number): THREE.BufferGeometry {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.quadraticCurveTo(size * 0.2, -size * 0.2, size * 0.4, -size * 0.1);
+    shape.lineTo(size * 0.3, 0);
+    shape.lineTo(0, 0);
+    
+    const geometry = new THREE.ShapeGeometry(shape);
+    return geometry;
+  }
+  
+  private createRealisticEyes(): THREE.Mesh[] {
+    const eyes: THREE.Mesh[] = [];
+    const size = this.data.config.size;
+    
+    // Eye positions
+    const eyePositions = [
+      [size * 0.8, size * 0.15, size * 0.25],  // Left eye
+      [size * 0.8, size * 0.15, -size * 0.25]  // Right eye
+    ];
+    
+    eyePositions.forEach(pos => {
+      const eyeGroup = new THREE.Group();
+      
+      // Eye white (sclera)
+      const scleraGeometry = new THREE.SphereGeometry(size * 0.12, 12, 8);
+      const scleraMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        clearcoat: 1,
+        clearcoatRoughness: 0,
+        roughness: 0.1,
+      });
+      const sclera = new THREE.Mesh(scleraGeometry, scleraMaterial);
+      eyeGroup.add(sclera);
+      
+      // Iris
+      const irisGeometry = new THREE.SphereGeometry(size * 0.08, 12, 8);
+      const irisColor = this.data.species === 'goldfish' ? 0x333333 : 0x000088;
+      const irisMaterial = new THREE.MeshPhysicalMaterial({
+        color: irisColor,
+        roughness: 0.3,
+        metalness: 0.1,
+      });
+      const iris = new THREE.Mesh(irisGeometry, irisMaterial);
+      iris.position.set(size * 0.02, 0, 0);
+      eyeGroup.add(iris);
+      
+      // Pupil
+      const pupilGeometry = new THREE.SphereGeometry(size * 0.04, 8, 6);
+      const pupilMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const pupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+      pupil.position.set(size * 0.03, 0, 0);
+      eyeGroup.add(pupil);
+      
+      // Eye highlight
+      const highlightGeometry = new THREE.SphereGeometry(size * 0.02, 6, 4);
+      const highlightMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+      highlight.position.set(size * 0.04, size * 0.02, size * 0.01);
+      eyeGroup.add(highlight);
+      
+      eyeGroup.position.set(pos[0], pos[1], pos[2]);
+      eyes.push(eyeGroup as any);
+    });
+    
+    return eyes;
   }
 
   private createSelectionGlow(): void {
@@ -317,11 +562,33 @@ export class Fish implements Component {
     const velocity = this.behaviorState.direction.clone().multiplyScalar(baseSpeed);
     this.body.velocity.set(velocity.x, velocity.y, velocity.z);
 
-    // Smooth rotation to face movement direction
+    // Realistic fish swimming orientation - fish should face direction of movement
     if (velocity.length() > 0.1) {
       const targetPosition = position.clone().add(velocity);
       this.mesh.lookAt(targetPosition);
+      
+      // Add subtle fin animation based on swimming speed
+      this.animateFins(baseSpeed, deltaTime);
     }
+  }
+  
+  private animateFins(speed: number, deltaTime: number): void {
+    const time = Date.now() * 0.001;
+    const finAnimationSpeed = speed * 2;
+    
+    // Find fin meshes and animate them subtly
+    this.mesh.children.forEach((child, index) => {
+      if (index > 0) { // Skip body mesh (index 0)
+        const originalRotation = child.userData.originalRotation || { x: child.rotation.x, y: child.rotation.y, z: child.rotation.z };
+        if (!child.userData.originalRotation) {
+          child.userData.originalRotation = originalRotation;
+        }
+        
+        // Subtle fin movement
+        const finMovement = Math.sin(time * finAnimationSpeed + index) * 0.1;
+        child.rotation.z = originalRotation.z + finMovement;
+      }
+    });
   }
 
   private getPersonalityMovement(): { speedMultiplier: number; directionChangeChance: number; turnSpeed: number } {
@@ -422,18 +689,24 @@ export class Fish implements Component {
     const material = bodyMesh.material as THREE.MeshPhysicalMaterial;
 
     if (this.data.health < 30) {
-      // Fish looks sick - duller colors, red glow
-      material.emissive.setRGB(0.2, 0.05, 0.05);
+      // Fish looks sick - duller colors, less iridescence
+      material.iridescence = 0.1;
+      material.clearcoat = 0.3;
+      material.emissive.setRGB(0.1, 0.02, 0.02);
       this.data.needsAttentionGlow = true;
     } else if (this.data.hunger < 20) {
-      // Fish is hungry - slight orange glow
-      material.emissive.setRGB(0.1, 0.08, 0.02);
+      // Fish is hungry - slight color desaturation
+      material.iridescence = 0.3;
+      material.clearcoat = 0.5;
+      material.emissive.setRGB(0.05, 0.04, 0.01);
       this.data.needsAttentionGlow = true;
     } else {
-      // Healthy fish
+      // Healthy fish - full beauty
+      material.iridescence = this.data.config.iridescent ? 1.0 : 0.3;
+      material.clearcoat = 0.9;
       material.emissive = this.data.config.bodyColor
         .clone()
-        .multiplyScalar(this.data.originalEmissive || 0.03);
+        .multiplyScalar(0.02);
       this.data.needsAttentionGlow = false;
     }
   }
