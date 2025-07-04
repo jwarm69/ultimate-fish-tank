@@ -158,32 +158,22 @@ export class GameLogic implements Component {
   }
 
   private handleFeedButton(): void {
-    const feedCost = 5; // Cost per feeding
-    
+    // Make feeding free for now to ensure it works
     const selectedFish = this.fishSystem.getSelectedFish();
     if (selectedFish) {
       // Feed specific fish
-      if (this.playerStats.coins >= feedCost) {
-        this.playerStats.coins -= feedCost;
-        this.events.emit('feedFish', { fishId: selectedFish.getId() });
-        this.events.emit('dropFood', { targetFish: selectedFish.getId() });
-      } else {
-        this.events.emit('message', { text: `⚠️ Not enough coins to feed fish! (Cost: ${feedCost} coins)` });
-      }
+      this.events.emit('feedFish', { fishId: selectedFish.getId() });
+      this.events.emit('dropFood', { targetFish: selectedFish.getId() });
+      this.events.emit('message', { text: '🍽️ Fed selected fish!' });
     } else {
       // Feed all fish
       const fish = this.fishSystem.getFish();
       if (fish.length > 0) {
-        const totalCost = feedCost * fish.length;
-        if (this.playerStats.coins >= totalCost) {
-          this.playerStats.coins -= totalCost;
-          fish.forEach(f => {
-            this.events.emit('feedFish', { fishId: f.getId() });
-            this.events.emit('dropFood', { targetFish: f.getId() });
-          });
-        } else {
-          this.events.emit('message', { text: `⚠️ Not enough coins to feed all fish! (Cost: ${totalCost} coins)` });
-        }
+        fish.forEach(f => {
+          this.events.emit('feedFish', { fishId: f.getId() });
+          this.events.emit('dropFood', { targetFish: f.getId() });
+        });
+        this.events.emit('message', { text: `🍽️ Fed all ${fish.length} fish!` });
       } else {
         this.events.emit('message', { text: '⚠️ No fish to feed!' });
       }
@@ -195,18 +185,21 @@ export class GameLogic implements Component {
       this.playerStats.coins -= 20;
       this.events.emit('tankCleaned');
       this.events.emit('cleaningEffect');
+      this.events.emit('coinsUpdated', { coins: this.playerStats.coins });
+      this.events.emit('message', { text: '🧹 Tank cleaned! (-20 coins)' });
     } else {
       this.events.emit('message', { text: '⚠️ Not enough coins to clean! (Cost: 20 coins)' });
     }
   }
 
   private handleAddFishButton(): void {
-    const fishCost = 50 + this.fishSystem.getFishCount() * 25;
+    const fishCost = 25; // Fixed reasonable cost
 
     if (this.playerStats.coins >= fishCost) {
       this.playerStats.coins -= fishCost;
       const newFish = this.fishSystem.addRandomFish();
       this.events.emit('message', { text: `🐠 New fish added! (-${fishCost} coins)` });
+      this.events.emit('coinsUpdated', { coins: this.playerStats.coins });
       this.checkAchievements();
     } else {
       this.events.emit('message', {

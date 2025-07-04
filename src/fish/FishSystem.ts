@@ -138,7 +138,7 @@ export class FishSystem implements Component {
     const fish = new Fish(fishData, this.scene, this.physics?.getWorld());
     fish.init();
     this.fish.push(fish);
-
+    
     this.events.emit('fishCountChanged', { count: this.fish.length });
     this.events.emit('message', {
       text: `🐠 A new ${fishData.species} fish joined your aquarium!`,

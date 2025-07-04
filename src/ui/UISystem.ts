@@ -42,6 +42,10 @@ export class UISystem implements Component {
       this.updateCoinsDisplay();
     });
 
+    this.events.on('coinsUpdated', event => {
+      this.updateCoinsDisplay();
+    });
+
     this.events.on('levelUp', event => {
       this.updateLevelDisplay();
     });
@@ -81,19 +85,29 @@ export class UISystem implements Component {
     const addFishBtn = document.getElementById('add-fish-btn');
     const infoBtn = document.getElementById('info-btn');
 
-    feedBtn?.addEventListener('click', () => {
+    if (!feedBtn || !cleanBtn || !addFishBtn || !infoBtn) {
+      console.error('❌ Critical UI elements not found!', {
+        feedBtn: !!feedBtn,
+        cleanBtn: !!cleanBtn,
+        addFishBtn: !!addFishBtn,
+        infoBtn: !!infoBtn
+      });
+      return;
+    }
+
+    feedBtn.addEventListener('click', () => {
       this.events.emit('feedFish');
     });
 
-    cleanBtn?.addEventListener('click', () => {
+    cleanBtn.addEventListener('click', () => {
       this.events.emit('cleanTank');
     });
 
-    addFishBtn?.addEventListener('click', () => {
+    addFishBtn.addEventListener('click', () => {
       this.events.emit('addFish');
     });
 
-    infoBtn?.addEventListener('click', () => {
+    infoBtn.addEventListener('click', () => {
       this.showInfoModal();
     });
 
@@ -105,6 +119,7 @@ export class UISystem implements Component {
       const selectedFish = this.fishSystem.getSelectedFish();
       if (selectedFish) {
         this.events.emit('feedFish', { fishId: selectedFish.getId() });
+        this.events.emit('dropFood', { targetFish: selectedFish.getId() });
       }
     });
 
