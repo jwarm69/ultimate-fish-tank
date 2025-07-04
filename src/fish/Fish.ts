@@ -14,6 +14,9 @@ export class Fish implements Component {
   private lastUpdateTime = Date.now();
   private selectionGlow?: THREE.Mesh;
   private feedParticles: THREE.Points[] = [];
+  private targetFood?: THREE.Vector3;
+  private foodDetectionRadius = 3.0;
+  private isChasing = false;
 
   constructor(data: FishData, scene: THREE.Scene, world?: CANNON.World) {
     this.data = { ...data };
@@ -417,6 +420,72 @@ export class Fish implements Component {
     
     return eyes;
   }
+  
+  private updateFoodTarget(): void {
+    // This will be called by FishSystem to set food targets
+    // For now, we'll just clear expired food targets
+    if (this.targetFood && this.isChasing) {
+      const distanceToFood = this.mesh.position.distanceTo(this.targetFood);
+      
+      // If we're very close to food, "eat" it
+      if (distanceToFood < 0.2) {
+        this.eatFood();
+      }
+      
+      // If food is too far or we've been chasing too long, give up
+      if (distanceToFood > this.foodDetectionRadius * 2) {
+        this.clearFoodTarget();
+      }
+    }
+  }
+  
+  public setFoodTarget(foodPosition: THREE.Vector3): void {
+    const distance = this.mesh.position.distanceTo(foodPosition);
+    
+    // Only chase food within detection radius
+    if (distance <= this.foodDetectionRadius) {
+      this.targetFood = foodPosition.clone();
+      this.isChasing = true;
+      
+      // Hungry fish are more motivated to chase food
+      if (this.data.hunger < 50) {
+        this.foodDetectionRadius = 4.0; // Increase detection range when hungry
+      }
+    }
+  }
+  
+  public clearFoodTarget(): void {
+    this.targetFood = undefined;
+    this.isChasing = false;
+    this.foodDetectionRadius = 3.0; // Reset to normal
+  }
+  
+  public isNearFood(foodPosition: THREE.Vector3): boolean {
+    return this.mesh.position.distanceTo(foodPosition) <= this.foodDetectionRadius;
+  }
+  
+  private eatFood(): void {
+    // Increase hunger and happiness when eating
+    this.data.hunger = Math.min(100, this.data.hunger + 15);
+    this.data.happiness = Math.min(100, this.data.happiness + 5);
+    this.data.lastFed = Date.now();
+    
+    // Clear food target
+    this.clearFoodTarget();
+    
+    // Create eating particle effect
+    this.createFeedParticles();
+    
+    console.log(`🐠 ${this.data.species} fish ate food! Hunger: ${Math.round(this.data.hunger)}`);
+  }
+  
+  public getFoodDetectionRadius(): number {
+    return this.foodDetectionRadius;
+  }
+  
+  public isChasingFood(): boolean {
+    return this.isChasing;
+  }
 
   private createSelectionGlow(): void {
     const glowGeometry = new THREE.SphereGeometry(this.data.config.size * 1.5, 16, 12);
@@ -506,6 +575,9 @@ export class Fish implements Component {
       minZ: -5.5, maxZ: 5.5  // Tank depth 12, leave margin
     };
 
+    // Check for nearby food and update target
+    this.updateFoodTarget();
+
     // Adjust speed based on health
     const healthMultiplier = Math.max(0.3, this.data.health / 100);
     let baseSpeed = (this.data.originalSpeed || 1) * healthMultiplier;
@@ -513,6 +585,11 @@ export class Fish implements Component {
     // Personality-based movement modifications
     const personalityMods = this.getPersonalityMovement();
     baseSpeed *= personalityMods.speedMultiplier;
+    
+    // Increase speed when chasing food
+    if (this.isChasing && this.targetFood) {
+      baseSpeed *= 1.8;
+    }
 
     // Boundary avoidance - create repulsion force when near walls
     const avoidanceForce = new THREE.Vector3(0, 0, 0);
@@ -537,9 +614,16 @@ export class Fish implements Component {
       avoidanceForce.z -= (position.z - (tankBounds.maxZ - avoidanceDistance)) * 2;
     }
 
-    // Random direction changes based on personality
-    if (Math.random() < personalityMods.directionChangeChance) {
-      this.behaviorState.direction = this.generatePersonalityDirection();
+    // Food chasing behavior overrides normal movement
+    if (this.isChasing && this.targetFood) {
+      const foodDirection = this.targetFood.clone().sub(position).normalize();
+      this.behaviorState.direction.lerp(foodDirection, 0.7);
+      this.behaviorState.direction.normalize();
+    } else {
+      // Random direction changes based on personality
+      if (Math.random() < personalityMods.directionChangeChance) {
+        this.behaviorState.direction = this.generatePersonalityDirection();
+      }
     }
 
     // Apply avoidance force to direction

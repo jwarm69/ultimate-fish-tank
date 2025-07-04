@@ -8,6 +8,7 @@ import { EnvironmentSystem } from '../environment/EnvironmentSystem';
 import { EffectsSystem } from '../effects/EffectsSystem';
 import { GameLogic } from '../game/GameLogic';
 import { UISystem } from '../ui/UISystem';
+import { FoodSystem } from '../food/FoodSystem';
 
 export class UltimateFishTank {
   private config: EngineConfig;
@@ -23,6 +24,7 @@ export class UltimateFishTank {
   private effectsSystem!: EffectsSystem;
   private gameLogic!: GameLogic;
   private uiSystem!: UISystem;
+  private foodSystem!: FoodSystem;
 
   // State
   private isRunning = false;
@@ -138,6 +140,22 @@ export class UltimateFishTank {
       camera: this.camera.getCamera(),
     });
     this.fishSystem.init();
+    
+    // Initialize food system
+    this.foodSystem = new FoodSystem({
+      scene: this.renderer.getScene(),
+      world: this.physics!.getWorld(),
+      events: this.events,
+      tankBounds: {
+        minX: -9, maxX: 9,
+        minY: -3.5, maxY: 3.5,
+        minZ: -5.5, maxZ: 5.5
+      }
+    });
+    this.foodSystem.init();
+    
+    // Connect food system with fish system for food detection
+    this.setupFoodFishInteraction();
 
     // Initialize game logic
     this.gameLogic = new GameLogic({
@@ -158,6 +176,25 @@ export class UltimateFishTank {
       gameLogic: this.gameLogic,
     });
     this.uiSystem.init();
+  }
+  
+  private setupFoodFishInteraction(): void {
+    // Update fish food targets when food is dropped
+    this.events.on('foodDropped', (event) => {
+      const foodPosition = event.data?.position;
+      const foodParticles = event.data?.particles || [];
+      
+      if (foodPosition) {
+        const fish = this.fishSystem.getFish();
+        
+        // Find fish that can detect the food
+        fish.forEach(f => {
+          if (f.isNearFood(foodPosition)) {
+            f.setFoodTarget(foodPosition);
+          }
+        });
+      }
+    });
   }
 
   private setupEventListeners(): void {
@@ -219,8 +256,12 @@ export class UltimateFishTank {
     this.fishSystem.update(deltaTime);
     this.environmentSystem.update(deltaTime);
     this.effectsSystem.update(deltaTime);
+    this.foodSystem.update(deltaTime);
     this.gameLogic.update(deltaTime);
     this.uiSystem.update(deltaTime);
+    
+    // Update food-fish interactions
+    this.updateFoodFishInteractions();
   }
 
   private render(): void {
@@ -230,20 +271,48 @@ export class UltimateFishTank {
   public stop(): void {
     this.isRunning = false;
   }
+  
+  private updateFoodFishInteractions(): void {
+    const foodParticles = this.foodSystem.getFoodParticles();
+    const fish = this.fishSystem.getFish();
+    
+    // Check for fish-food interactions
+    foodParticles.forEach(particle => {
+      if (particle.eaten) return;
+      
+      fish.forEach(f => {
+        const distanceToFood = f.getMesh().position.distanceTo(particle.mesh.position);
+        
+        // If fish is very close to food, eat it
+        if (distanceToFood < 0.3 && !particle.eaten) {
+          const nutritionGained = this.foodSystem.eatFoodParticle(particle);
+          if (nutritionGained > 0) {
+            // Update fish stats through events
+            this.events.emitImmediate('fishFed', { fishId: f.getId() });
+          }
+        }
+        // If fish can see food but isn't chasing anything, set as target
+        else if (distanceToFood <= f.getFoodDetectionRadius() && !f.isChasingFood()) {
+          f.setFoodTarget(particle.mesh.position);
+        }
+      });
+    });
+  }
 
   public destroy(): void {
     this.stop();
 
-    // Cleanup all systems
-    this.fishSystem?.destroy();
-    this.environmentSystem?.destroy();
-    this.effectsSystem?.destroy();
-    this.gameLogic?.destroy();
-    this.uiSystem?.destroy();
-    this.renderer?.destroy();
-    this.camera?.destroy();
-    this.physics?.destroy();
-    this.events?.destroy();
+    // Cleanup all systems (using comprehensive version)
+    if (this.fishSystem) this.fishSystem.destroy();
+    if (this.environmentSystem) this.environmentSystem.destroy();
+    if (this.effectsSystem) this.effectsSystem.destroy();
+    if (this.foodSystem) this.foodSystem.destroy();
+    if (this.gameLogic) this.gameLogic.destroy();
+    if (this.uiSystem) this.uiSystem.destroy();
+    
+    // Cleanup core systems
+    if (this.physics) this.physics.destroy();
+    if (this.events) this.events.destroy();
   }
 
   private detectCapabilities(): Capabilities {
@@ -305,5 +374,9 @@ export class UltimateFishTank {
 
   public getFrameCount(): number {
     return this.frameCount;
+  }
+  
+  public getFoodSystem(): FoodSystem {
+    return this.foodSystem;
   }
 }
